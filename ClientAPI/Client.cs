@@ -31,14 +31,20 @@ namespace ClientAPI
                 {
                     clientSocket.Connect(remoteEP);
 
-                    clientSocket.Send(Serializer<Message>.Serialize(new Message
+                    MessageParser parser = new MessageParser();
+
+                    byte[] message = Serializer<Message>.Serialize(new Message
                     {
                         SenderClientID = userClientID,
                         ReceiverClientID = null,
                         MessageType = Message.messageType.ClientJoin,
                         MessageBody = clientID,
                         Broadcast = false
-                    }));
+                    });
+
+                    byte[] packet = parser.SenderParser(message);
+
+                    int bytesSent = clientSocket.Send(packet);
 
                     isConnected = true;
                     return 0;
@@ -54,7 +60,7 @@ namespace ClientAPI
             }
             catch (Exception)
             {
-                return -3;
+                throw;
             }
         }
 
@@ -67,10 +73,21 @@ namespace ClientAPI
             try
             {
                 byte[] bytes = new byte[1024];
+                MessageParser parser = new MessageParser();
 
                 int bytesReceived = clientSocket.Receive(bytes);
 
-                Message im = Serializer<Message>.Deserialize(bytes);
+                byte[] message = parser.ReceiverParser(bytes, bytesReceived);
+
+                if (message == null)
+                {
+                    return new Message
+                    {
+                        MessageType = Message.messageType.Incomplete
+                    };
+                }
+
+                Message im = Serializer<Message>.Deserialize(message);
 
                 return im;
             } 
@@ -88,6 +105,8 @@ namespace ClientAPI
             {
                 if (isConnected)
                 {
+                    MessageParser parser = new MessageParser();
+
                     Message im = new Message
                     {
                         SenderClientID = this.clientID,
@@ -97,7 +116,11 @@ namespace ClientAPI
                         MessageType = Message.messageType.ClientMessage
                     };
 
-                    int bytesSent = clientSocket.Send(Serializer<Message>.Serialize(im));
+                    byte[] message = Serializer<Message>.Serialize(im);
+
+                    byte[] packet = parser.SenderParser(message);
+
+                    int bytesSent = clientSocket.Send(packet);
 
                     return 0;
                 }
@@ -117,6 +140,8 @@ namespace ClientAPI
             {
                 if (isConnected)
                 {
+                    MessageParser parser = new MessageParser();
+
                     Message im = new Message
                     {
                         SenderClientID = this.clientID,
@@ -126,7 +151,11 @@ namespace ClientAPI
                         Broadcast = true
                     };
 
-                    int bytesSent = clientSocket.Send(Serializer<Message>.Serialize(im));
+                    byte[] message = Serializer<Message>.Serialize(im);
+
+                    byte[] packet = parser.SenderParser(message);
+
+                    int bytesSent = clientSocket.Send(packet);
 
                     return 0;
                 }
@@ -153,16 +182,21 @@ namespace ClientAPI
 
         public void Quit()
         {
-            Message shutdownMessage = new Message
+            MessageParser parser = new MessageParser();
+
+            byte[] message = Serializer<Message>.Serialize(new Message
             {
                 SenderClientID = null,
                 ReceiverClientID = null,
                 MessageBody = null,
                 MessageType = Message.messageType.ClientQuit,
                 Broadcast = false
-            };
+            });
 
-            clientSocket.Send(Serializer<Message>.Serialize(shutdownMessage));
+            byte[] packet = parser.SenderParser(message);
+
+            int bytesSent = clientSocket.Send(packet);
+
             clientSocket.Shutdown(SocketShutdown.Both);
             clientSocket.Close();
             isConnected = false;

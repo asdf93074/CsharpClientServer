@@ -16,7 +16,8 @@ namespace ClientAPI
             ClientJoin,
             ClientJoinUpdate,
             ClientQuit,
-            ClientQuitUpdate
+            ClientQuitUpdate,
+            Incomplete
         };
 
         private string _senderClientID;

@@ -35,6 +35,7 @@ namespace ServerService
             Message clientIDMessage = new Message();
             Message clientListMessage = new Message();
 
+
             while (true)
             {
                 if (handler.Connected)
@@ -61,7 +62,7 @@ namespace ServerService
                             clientIDMessage.ReceiverClientID = clientID;
                             clientIDMessage.MessageType = Message.messageType.ClientID;
                             clientIDMessage.MessageBody = clientID;
-                            handler.Send(Serializer<Message>.Serialize(clientIDMessage));
+                            SendPacket(clientIDMessage, handler);
 
                             //to avoid bytes from different sends appearing together on the buffer on the receiving socket
                             Thread.Sleep(100);
@@ -73,7 +74,7 @@ namespace ServerService
                             //sends the list of clients to every client
                             foreach (Socket s in connectedClients.Values)
                             {
-                                s.Send(Serializer<Message>.Serialize(clientListMessage));
+                                SendPacket(clientListMessage, s);
                             }
 
                             Thread.Sleep(100);
@@ -92,7 +93,7 @@ namespace ServerService
                             {
                                 if (!s.Equals(handler))
                                 {
-                                    s.Send(Serializer<Message>.Serialize(joinUpdateMessage));
+                                    SendPacket(joinUpdateMessage, s);
                                 }
                             }
 
@@ -114,7 +115,7 @@ namespace ServerService
 
                             foreach (Socket s in connectedClients.Values)
                             {
-                                s.Send(Serializer<Message>.Serialize(clientListMessage));
+                                SendPacket(clientListMessage, s);
                             }
 
                             Thread.Sleep(100);
@@ -127,7 +128,7 @@ namespace ServerService
 
                             foreach (Socket s in connectedClients.Values)
                             {
-                                s.Send(Serializer<Message>.Serialize(im));
+                                SendPacket(im, s);
                             }
 
                             break;
@@ -142,7 +143,7 @@ namespace ServerService
                                 {
                                     if (!s.Equals(handler))
                                     {
-                                        s.Send(Serializer<Message>.Serialize(im));
+                                        SendPacket(im, s);
                                     }
                                 }
                             }
@@ -153,7 +154,7 @@ namespace ServerService
 
                                 Socket receiver = connectedClients[im.ReceiverClientID];
 
-                                receiver.Send(Serializer<Message>.Serialize(im));
+                                SendPacket(im, receiver);
                             }
                             else if (disconnectedClients.Contains(im.ReceiverClientID))
                             {
@@ -177,7 +178,7 @@ namespace ServerService
                                 im.MessageType = Message.messageType.ClientMessageFailure;
                                 im.MessageBody = messageFailureErrorCodes[2];
 
-                                handler.Send(Serializer<Message>.Serialize(im));
+                                SendPacket(im, handler);
                             }
                             else
                             {
@@ -187,7 +188,7 @@ namespace ServerService
                                 im.MessageType = Message.messageType.ClientMessageFailure;
                                 im.MessageBody = messageFailureErrorCodes[1];
 
-                                handler.Send(Serializer<Message>.Serialize(im));
+                                SendPacket(im, handler);
                             }
 
                         }
@@ -211,7 +212,7 @@ namespace ServerService
 
                         foreach (Socket s in connectedClients.Values)
                         {
-                            s.Send(Serializer<Message>.Serialize(clientListMessage));
+                            SendPacket(clientListMessage, s);
                         }
 
                         break;
@@ -219,6 +220,17 @@ namespace ServerService
                 }
             }
         }
+
+        public void SendPacket(Message data, Socket sender)
+        {
+            MessageParser parser = new MessageParser();
+
+            byte[] message = Serializer<Message>.Serialize(data);
+
+            byte[] packet = parser.SenderParser(message);
+
+            int bytesSent = sender.Send(packet);
+        } 
 
         public void MessageQueuesHandler()
         {
@@ -247,7 +259,7 @@ namespace ServerService
                             {
                                 TimestampedMessage tm = messageQueues[k].Dequeue();
 
-                                connectedClients[k].Send(Serializer<Message>.Serialize(tm.message));
+                                SendPacket(tm.message, connectedClients[k]);
                             }
                         }
                     }
