@@ -71,7 +71,6 @@ namespace ServerApp
                                 SendPacket(clientIDMessage, handler);
 
                                 //to avoid bytes from different sends appearing together on the buffer on the receiving socket
-                                Thread.Sleep(100);
 
                                 clientListMessage.ReceiverClientID = currentClient.ToString();
                                 clientListMessage.MessageType = Message.messageType.ClientList;
@@ -82,8 +81,6 @@ namespace ServerApp
                                 {
                                     SendPacket(clientListMessage, s);
                                 }
-
-                                Thread.Sleep(100);
 
                                 Message joinUpdateMessage = new Message
                                 {
@@ -123,8 +120,6 @@ namespace ServerApp
                                 {
                                     SendPacket(clientListMessage, s);
                                 }
-
-                                Thread.Sleep(100);
 
                                 im.SenderClientID = null;
                                 im.ReceiverClientID = null;
@@ -270,8 +265,6 @@ namespace ServerApp
                         }
                     }
                 }
-
-                Thread.Sleep(100);
             }
         }
 

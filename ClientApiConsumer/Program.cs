@@ -143,47 +143,31 @@ namespace ClientApiConsumer
                                     Console.WriteLine("Enter your message:");
                                     string userInput = Console.ReadLine();
 
-                                    try
-                                    {
-                                        int res = client.SendMessageToClient(userInput, receivingClientID);
+                                    int res = client.SendMessageToClient(userInput, receivingClientID);
 
-                                        if (res < -1 && res < 0)
-                                        {
-                                            Console.WriteLine("Something went wrong with sending the message. SendMessageToClient returned {0}", res);
-                                        }
-                                        else if (res == -1)
-                                        {
-                                            Console.WriteLine("You are not connected to the server.");
-                                        }
-                                    }
-                                    catch (SocketException se) when (se.SocketErrorCode == SocketError.ConnectionReset)
+                                    if (res < -1 && res < 0)
                                     {
-                                        client.isConnected = false;
-                                        Console.WriteLine("Server has went down.");
+                                        Console.WriteLine("Something went wrong with sending the message. SendMessageToClient returned {0}", res);
+                                    }
+                                    else if (res == -1)
+                                    {
+                                        Console.WriteLine("You are not connected to the server.");
                                     }
                                     break;
                                 case 3:
                                     Console.WriteLine("Enter your message:");
                                     string broadcastMessage = Console.ReadLine();
 
-                                    try
-                                    {
-                                        int resBroadcast = client.BroadcastMessage(broadcastMessage);
+                                    int resBroadcast = client.BroadcastMessage(broadcastMessage);
 
-                                        if (resBroadcast < -1 && resBroadcast < 0)
-                                        {
-                                            Console.WriteLine("Something went wrong with sending the message. SendMessageToClient returned {0}",
-                                                resBroadcast);
-                                        }
-                                        else if (resBroadcast == -1)
-                                        {
-                                            Console.WriteLine("You are not connected to the server.");
-                                        }
-                                    }
-                                    catch (SocketException se) when (se.SocketErrorCode == SocketError.ConnectionReset)
+                                    if (resBroadcast < -1 && resBroadcast < 0)
                                     {
-                                        client.isConnected = false;
-                                        Console.WriteLine("Server has went down.");
+                                        Console.WriteLine("Something went wrong with sending the message. SendMessageToClient returned {0}",
+                                            resBroadcast);
+                                    }
+                                    else if (resBroadcast == -1)
+                                    {
+                                        Console.WriteLine("You are not connected to the server.");
                                     }
 
                                     break;
@@ -239,6 +223,11 @@ namespace ClientApiConsumer
                         catch (FormatException)
                         {
                             Console.WriteLine("Please enter a valid option.");
+                        }
+                        catch (SocketException se) when (se.SocketErrorCode == SocketError.ConnectionReset)
+                        {
+                            client.isConnected = false;
+                            Console.WriteLine("Server has went down.");
                         }
                     }
 
