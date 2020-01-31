@@ -16,6 +16,7 @@ namespace ClientAPI
         public Socket clientSocket;
         public bool isConnected = false;
         public ArrayList clientList;
+        MessageParser receiverParser = new MessageParser();
 
         public int StartClient(String userClientID, string ip = "127.0.0.1")
         {
@@ -73,11 +74,11 @@ namespace ClientAPI
             try
             {
                 byte[] bytes = new byte[1024];
-                MessageParser parser = new MessageParser();
 
                 int bytesReceived = clientSocket.Receive(bytes);
 
-                byte[] message = parser.ReceiverParser(bytes, bytesReceived);
+                Queue<byte[]> incomingMessages = receiverParser.ReceiverParser(bytes, bytesReceived);
+                byte[] message = 
 
                 if (message == null)
                 {
