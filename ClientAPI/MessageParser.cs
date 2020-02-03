@@ -73,16 +73,16 @@ namespace ClientAPI
                     byte[] wholeMessage = CompleteByteArray();
                     byte[] message = new byte[wholeMessage.Length];
 
-                    if (messageLength + messageLengthHeaderSize > wholeMessage.Length)
+                    //check if we have the whole packet as specified by the length header
+                    if (messageLength + messageLengthHeaderSize <= wholeMessage.Length)
                     {
                         //if the total message size is more than what our header tells us
                         //then go back and check for new messages
-                        morePackets = true;
-                    }
+                        if (messageLength + messageLengthHeaderSize < wholeMessage.Length)
+                        {
+                            morePackets = true;
+                        }
 
-                    //check if we have the whole packet as specified by the length header
-                    if (wholeMessage.Length - messageLengthHeaderSize == messageLength)
-                    {
                         Buffer.BlockCopy(wholeMessage, messageLengthHeaderSize, message, 0, messageLength);
 
                         currentState = States.Empty;

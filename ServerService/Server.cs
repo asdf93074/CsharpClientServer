@@ -226,6 +226,8 @@ namespace ServerService
         {
             MessageParser parser = new MessageParser();
 
+            Log.Information("[Sending] {0} {1}", data.MessageType, data.MessageBody);
+
             byte[] message = Serializer<Message>.Serialize(data);
 
             byte[] packet = parser.SenderParser(message);

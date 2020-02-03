@@ -22,6 +22,7 @@ namespace ClientApiConsumer
                     Queue<Message> queue = new Queue<Message>();
                     
                     queue = client.ReceiveData();
+
                     foreach (Message im in queue)
                     {
                         if (im.MessageType == Message.messageType.ClientQuit)

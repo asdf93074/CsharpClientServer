@@ -103,5 +103,11 @@ namespace ClientAPI
                 this._messageType = value;
             }
         }
+
+        public void PrintMessage()
+        {
+            Console.WriteLine("[MessagePrint] Sender: {0}, Receiver: {1}, MesasgeType: {2}, MessageBody: {3}, Broadcast: {4}",
+                SenderClientID, this.ReceiverClientID, this.MessageType.ToString(), this.MessageBody.ToString(), this.Broadcast.ToString());
+        }
     }
 }
