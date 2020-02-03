@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Collections.Concurrent;
 using System.Configuration;
 using System.Linq;
 using System.Net;
@@ -22,8 +21,10 @@ namespace ServerApp
             [2] = "Client is offline at the moment. Will hold message if it comes back."
         };
 
-        ConcurrentDictionary<string, ConcurrentQueue<TimestampedMessage>> messageQueues = new ConcurrentDictionary<string, ConcurrentQueue<TimestampedMessage>>();
-        ConcurrentDictionary<string, Socket> connectedClients = new ConcurrentDictionary<string, Socket>();
+        private static readonly object _messsageQueuesLocker = new object();
+        Dictionary<string, Queue<TimestampedMessage>> messageQueues = new Dictionary<string, Queue<TimestampedMessage>>();
+
+        Dictionary<string, Socket> connectedClients = new Dictionary<string, Socket>();
         ArrayList disconnectedClients = new ArrayList();
 
         public int currentClient = 0;
@@ -53,8 +54,11 @@ namespace ServerApp
                             {
                                 clientID = im.SenderClientID;
 
-                                connectedClients.TryAdd(clientID, handler);
-
+                                lock (_messsageQueuesLocker)
+                                {
+                                    connectedClients.Add(clientID, handler);
+                                }
+                                
                                 if (disconnectedClients.Contains(clientID.ToString()))
                                 {
                                     disconnectedClients.Remove(clientID.ToString());
@@ -104,7 +108,11 @@ namespace ServerApp
                             {
                                 Log.Information("[ClientDisconnected] Client {0} has disconnected (gracefully).", clientID);
 
-                                connectedClients.TryRemove(clientID.ToString(), out _);
+                                lock (_messsageQueuesLocker)
+                                {
+                                    connectedClients.Remove(clientID.ToString());
+                                }
+
                                 disconnectedClients.Add(clientID.ToString());
                                 handler.Shutdown(SocketShutdown.Both);
                                 handler.Close();
@@ -162,7 +170,7 @@ namespace ServerApp
                                     //adding message to queue for clients
                                     if (!messageQueues.ContainsKey(im.ReceiverClientID))
                                     {
-                                        messageQueues.TryAdd(im.ReceiverClientID, new ConcurrentQueue<TimestampedMessage>());
+                                        messageQueues.Add(im.ReceiverClientID, new Queue<TimestampedMessage>());
                                     }
 
                                     messageQueues[im.ReceiverClientID].Enqueue(new TimestampedMessage
@@ -199,7 +207,10 @@ namespace ServerApp
                 catch (SocketException)
                 {
                     Log.Information("[ClientDisconnected] Client {0} has disconnected (forcibly closed).", clientID);
-                    connectedClients.TryRemove(clientID.ToString(), out _);
+                    lock (_messsageQueuesLocker)
+                    {
+                        connectedClients.Remove(clientID.ToString());
+                    }
                     disconnectedClients.Add(clientID.ToString());
 
                     handler.Shutdown(SocketShutdown.Both);
@@ -236,34 +247,33 @@ namespace ServerApp
             {
                 if (messageQueues.Count > 0)
                 {
-                    foreach (var q in messageQueues.Values)
+                    lock (_messsageQueuesLocker)
                     {
-                        if (q.Count > 0)
+                        foreach (var q in messageQueues.Values)
                         {
-                            TimestampedMessage result;
-
-                            if (q.TryPeek(out result))
+                            if (q.Count > 0)
                             {
+                                TimestampedMessage result = q.Peek();
+
                                 if ((DateTime.Now - result.receivedAt).TotalSeconds > 30)
                                 {
                                     Log.Information("[MessageQueueHandler] Deleting message: {0}, from: {1}, to: {2}", result.message.MessageBody, result.message.SenderClientID,
                                         result.message.ReceiverClientID);
-                                    q.TryDequeue(out result);
+                                    q.Dequeue();
                                 }
                             }
                         }
-                    }
 
-                    foreach (var k in messageQueues.Keys)
-                    {
-                        if (connectedClients.ContainsKey(k))
+                        foreach (var k in messageQueues.Keys)
                         {
-                            for (int i = 0; i < messageQueues[k].Count; i++)
+                            if (connectedClients.ContainsKey(k))
                             {
-                                TimestampedMessage tm;
-                                messageQueues[k].TryDequeue(out tm);
+                                for (int i = 0; i < messageQueues[k].Count; i++)
+                                {
+                                    TimestampedMessage tm = messageQueues[k].Dequeue();
 
-                                SendPacket(tm.message, connectedClients[k]);
+                                    SendPacket(tm.message, connectedClients[k]);
+                                }
                             }
                         }
                     }
