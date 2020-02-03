@@ -27,6 +27,7 @@ namespace ClientAPI
         //returns (T) Empty Message - returns
         public Queue<byte[]> ReceiverParser(byte[] byteArray, int bytesReceived)
         {
+            incomingMessageQueue.Clear();
             while (true)
             {
                 bool morePackets = false;
@@ -58,6 +59,11 @@ namespace ClientAPI
                             messageLengthHeaderSize = Encoding.ASCII.GetBytes("<" + messageLength.ToString() + ">").Length;
                             currentState = States.Listening;
                         }
+                    }
+
+                    if (currentState != States.Listening)
+                    {
+                        morePackets = false;
                     }
                 }
 
@@ -107,19 +113,13 @@ namespace ClientAPI
 
                         messageLength = 0;
                         messageLengthHeaderSize = 0;
-                        //messageHolder.RemoveRange(0, messageHolder.Count);
+                        messageHolder.RemoveRange(0, messageHolder.Count);
                     }
                 }
 
                 if (!morePackets)
                 {
-                    if (incomingMessageQueue.Count > 0)
-                    {
-                        return incomingMessageQueue;
-                    } else
-                    {
-                        return null;
-                    }
+                    return incomingMessageQueue;
                 }
             }
         }

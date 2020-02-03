@@ -7,6 +7,7 @@ using System.Runtime.Serialization.Formatters.Binary;
 using System.IO;
 using System.Collections;
 using System.Configuration;
+using System.Collections.Generic;
 
 namespace ClientAPI
 { 
@@ -65,7 +66,7 @@ namespace ClientAPI
             }
         }
 
-        public Message ReceiveData()
+        public Queue<Message> ReceiveData()
         {
             //if an exception occurs, we don't want our library to handle it
             //we want the user to handle it e.g output something, do something else etc
@@ -77,21 +78,31 @@ namespace ClientAPI
 
                 int bytesReceived = clientSocket.Receive(bytes);
 
-                Queue<byte[]> incomingMessages = receiverParser.ReceiverParser(bytes, bytesReceived);
-                byte[] message = 
+                Queue<byte[]> incomingPackets = new Queue<byte[]>();
+                incomingPackets = receiverParser.ReceiverParser(bytes, bytesReceived);
+                Queue<Message> incomingMessages = new Queue<Message>();
 
-                if (message == null)
+                incomingMessages.Enqueue(new Message
                 {
-                    return new Message
+                    MessageType = Message.messageType.Incomplete
+                });
+
+                if (incomingPackets.Count > 0)
+                {
+                    incomingMessages.Dequeue();
+                    foreach (byte[] packet in incomingPackets)
                     {
-                        MessageType = Message.messageType.Incomplete
-                    };
+                        incomingMessages.Enqueue(Serializer<Message>.Deserialize(packet));
+                    }
                 }
 
-                Message im = Serializer<Message>.Deserialize(message);
-
-                return im;
-            } 
+                return incomingMessages;
+            }
+            catch (NullReferenceException nre)
+            {
+                Console.WriteLine(nre.ToString());
+                throw;
+            }
             catch (SocketException)
             {
                 throw;

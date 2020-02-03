@@ -5,6 +5,7 @@ using System.Net.Sockets;
 using System.Runtime.Serialization;
 
 using ClientAPI;
+using System.Collections.Generic;
 
 namespace ClientApiConsumer
 {
@@ -18,58 +19,62 @@ namespace ClientApiConsumer
             {
                 try
                 {
-                    Message im = client.ReceiveData();
-
-                    if (im.MessageType == Message.messageType.ClientQuit)
+                    Queue<Message> queue = new Queue<Message>();
+                    
+                    queue = client.ReceiveData();
+                    foreach (Message im in queue)
                     {
-                        break;
-                    }
-                    else if (im.MessageType == Message.messageType.Incomplete)
-                    {
-                        //if we have incomplete data then wait for more data
-                        continue;
-                    }
-                    else if (im.MessageType == Message.messageType.ClientID)
-                    {
-                        client.clientID = im.MessageBody.ToString();
-                        Console.WriteLine("[ClientID] ClientID is: {0}", im.MessageBody);
-                    }
-                    else if (im.MessageType == Message.messageType.ClientMessage)
-                    {
-                        if (im.Broadcast == true)
+                        if (im.MessageType == Message.messageType.ClientQuit)
                         {
-                            Console.WriteLine("[Broadcast] From Client: {0}, Message: {1}", im.SenderClientID, im.MessageBody);
+                            break;
                         }
-                        else
+                        else if (im.MessageType == Message.messageType.Incomplete)
                         {
-                            Console.WriteLine("[ClientMessage] From Client: {0}, Message: {1}", im.SenderClientID, im.MessageBody);
+                            //if we have incomplete data then wait for more data
+                            continue;
                         }
-                    }
-                    else if (im.MessageType == Message.messageType.ClientMessageFailure)
-                    {
-                        Console.WriteLine("[ClientMessageFailure] Reason: {0}", im.MessageBody);
-                    }
-                    else if (im.MessageType == Message.messageType.ClientList)
-                    {
-                        string[] clientListString = im.MessageBody.ToString().Split(',');
-                        ArrayList clientList = new ArrayList();
-
-                        foreach (string clientid in clientListString)
+                        else if (im.MessageType == Message.messageType.ClientID)
                         {
-                            clientList.Add(clientid);
+                            client.clientID = im.MessageBody.ToString();
+                            Console.WriteLine("[ClientID] ClientID is: {0}", im.MessageBody);
                         }
+                        else if (im.MessageType == Message.messageType.ClientMessage)
+                        {
+                            if (im.Broadcast == true)
+                            {
+                                Console.WriteLine("[Broadcast] From Client: {0}, Message: {1}", im.SenderClientID, im.MessageBody);
+                            }
+                            else
+                            {
+                                Console.WriteLine("[ClientMessage] From Client: {0}, Message: {1}", im.SenderClientID, im.MessageBody);
+                            }
+                        }
+                        else if (im.MessageType == Message.messageType.ClientMessageFailure)
+                        {
+                            Console.WriteLine("[ClientMessageFailure] Reason: {0}", im.MessageBody);
+                        }
+                        else if (im.MessageType == Message.messageType.ClientList)
+                        {
+                            string[] clientListString = im.MessageBody.ToString().Split(',');
+                            ArrayList clientList = new ArrayList();
 
-                        client.clientList = clientList;
+                            foreach (string clientid in clientListString)
+                            {
+                                clientList.Add(clientid);
+                            }
 
-                        Console.WriteLine("[ClientListUpdate] [{0}]", string.Join(",", client.clientList.ToArray()));
-                    }
-                    else if (im.MessageType == Message.messageType.ClientJoinUpdate)
-                    {
-                        Console.WriteLine("[ClientJoinUpdate] Client {0} has joined the server.", im.MessageBody);
-                    }
-                    else if (im.MessageType == Message.messageType.ClientQuitUpdate)
-                    {
-                        Console.WriteLine("[ClientQuitUpdate] Client {0} has left the server.", im.MessageBody);
+                            client.clientList = clientList;
+
+                            Console.WriteLine("[ClientListUpdate] [{0}]", string.Join(",", client.clientList.ToArray()));
+                        }
+                        else if (im.MessageType == Message.messageType.ClientJoinUpdate)
+                        {
+                            Console.WriteLine("[ClientJoinUpdate] Client {0} has joined the server.", im.MessageBody);
+                        }
+                        else if (im.MessageType == Message.messageType.ClientQuitUpdate)
+                        {
+                            Console.WriteLine("[ClientQuitUpdate] Client {0} has left the server.", im.MessageBody);
+                        }
                     }
                 }
                 catch (SocketException)
