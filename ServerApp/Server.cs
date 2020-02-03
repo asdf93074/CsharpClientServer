@@ -3,13 +3,10 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Configuration;
-using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.Serialization;
-using System.Runtime.Serialization.Formatters.Binary;
-using System.Text;
 using System.Threading;
 using Serilog;
 
@@ -305,30 +302,6 @@ namespace ServerApp
             {
                 Log.Error("Exception: {0}", e.ToString());
             }
-        }
-
-        static void Main(string[] args)
-        {
-            Log.Information("Starting server.");
-
-            Log.Logger = new LoggerConfiguration()
-                .MinimumLevel.Debug()
-                .WriteTo.Console()
-                .WriteTo.File("logs\\ServerLogs.txt", rollingInterval: RollingInterval.Day)
-                .CreateLogger();
-
-            Server server = new Server();
-
-            try
-            {
-                server.StartServer();
-            }
-            catch (SocketException se) when (se.SocketErrorCode == SocketError.AddressAlreadyInUse)
-            {
-                Log.Debug("Port {0} is already in use.", ConfigurationManager.AppSettings["port"]);
-            }
-
-            Log.CloseAndFlush();
         }
     }
 }

@@ -5,6 +5,8 @@ using System.Net.Sockets;
 using System.Threading;
 using Serilog;
 
+using ServerApp;
+
 namespace ServerService
 {
     public partial class Service1 : ServiceBase

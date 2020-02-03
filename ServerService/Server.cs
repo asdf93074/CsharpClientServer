@@ -1,9 +1,9 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
-using System.Linq;
-using System.Collections;
 using System.Configuration;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.Serialization;
@@ -12,7 +12,7 @@ using Serilog;
 
 using ClientAPI;
 
-namespace ServerService
+namespace ServerApp
 {
     public class Server
     {

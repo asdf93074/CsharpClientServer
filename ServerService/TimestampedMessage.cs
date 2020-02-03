@@ -2,7 +2,7 @@
 
 using ClientAPI;
 
-namespace ServerService
+namespace ServerApp
 {
     public class TimestampedMessage
     {
