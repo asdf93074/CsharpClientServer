@@ -36,6 +36,7 @@ namespace ServerApp
 
             Message clientIDMessage = new Message();
             Message clientListMessage = new Message();
+            Message clientDisconnectedListMessage = new Message();
             MessageParser parser = new MessageParser();
 
             while (true && handler.Connected)
@@ -57,11 +58,10 @@ namespace ServerApp
                                 lock (_messsageQueuesLocker)
                                 {
                                     connectedClients.Add(clientID, handler);
-                                }
-                                
-                                if (disconnectedClients.Contains(clientID.ToString()))
-                                {
-                                    disconnectedClients.Remove(clientID.ToString());
+                                    if (disconnectedClients.Contains(clientID.ToString()))
+                                    {
+                                        disconnectedClients.Remove(clientID.ToString());
+                                    }
                                 }
 
                                 Log.Information("[Client] Client {0} connected. IP: {1};", clientID, handler.RemoteEndPoint.ToString());
@@ -72,10 +72,10 @@ namespace ServerApp
                                 SendPacket(clientIDMessage, handler);
 
                                 //sending a list of previously connected (currently disconnected) clients
-                                clientIDMessage.ReceiverClientID = clientID;
-                                clientIDMessage.MessageType = MessageType.ClientDisconnectedList;
-                                clientIDMessage.MessageBody = string.Join(",", disconnectedClients.ToArray());
-                                SendPacket(clientIDMessage, handler);
+                                clientDisconnectedListMessage.ReceiverClientID = clientID;
+                                clientDisconnectedListMessage.MessageType = MessageType.ClientDisconnectedList;
+                                clientDisconnectedListMessage.MessageBody = string.Join(",", disconnectedClients.ToArray());
+                                SendPacket(clientDisconnectedListMessage, handler);
 
                                 clientListMessage.ReceiverClientID = currentClient.ToString();
                                 clientListMessage.MessageType = MessageType.ClientList;
@@ -111,34 +111,7 @@ namespace ServerApp
                             {
                                 Log.Information("[ClientDisconnected] Client {0} has disconnected (gracefully).", clientID);
 
-                                lock (_messsageQueuesLocker)
-                                {
-                                    connectedClients.Remove(clientID.ToString());
-                                }
-
-                                disconnectedClients.Add(clientID.ToString());
-                                handler.Shutdown(SocketShutdown.Both);
-                                handler.Close();
-
-                                clientListMessage.ReceiverClientID = null;
-                                clientListMessage.MessageType = MessageType.ClientList;
-                                clientListMessage.MessageBody = string.Join(",", connectedClients.Keys.ToArray());
-
-                                foreach (Socket s in connectedClients.Values)
-                                {
-                                    SendPacket(clientListMessage, s);
-                                }
-
-                                im.SenderClientID = null;
-                                im.ReceiverClientID = null;
-                                im.MessageType = MessageType.ClientQuitUpdate;
-                                im.MessageBody = clientID.ToString();
-                                im.Broadcast = false;
-
-                                foreach (Socket s in connectedClients.Values)
-                                {
-                                    SendPacket(im, s);
-                                }
+                                OnClientDisconnect(clientID, handler);
 
                                 break;
                             }
@@ -213,26 +186,54 @@ namespace ServerApp
                 catch (SocketException)
                 {
                     Log.Information("[ClientDisconnected] Client {0} has disconnected (forcibly closed).", clientID);
-                    lock (_messsageQueuesLocker)
-                    {
-                        connectedClients.Remove(clientID.ToString());
-                    }
-                    disconnectedClients.Add(clientID.ToString());
 
-                    handler.Shutdown(SocketShutdown.Both);
-                    handler.Close();
-
-                    clientListMessage.ReceiverClientID = currentClient.ToString();
-                    clientListMessage.MessageType = MessageType.ClientList;
-                    clientListMessage.MessageBody = string.Join(",", connectedClients.Keys.ToArray());
-
-                    foreach (Socket s in connectedClients.Values)
-                    {
-                        SendPacket(clientListMessage, s);
-                    }
+                    OnClientDisconnect(clientID, handler);
 
                     break;
                 }
+            }
+        }
+
+        public void OnClientDisconnect(string clientID, Socket handler)
+        {
+            //separate disconnect function as the functionality for handling a disconnect is the same
+            //even if the client crashes/is forcibly closed or even if it closes gracefully
+            //(by sending a ClientQuit packet)
+            lock (_messsageQueuesLocker)
+            {
+                connectedClients.Remove(clientID.ToString());
+                disconnectedClients.Add(clientID.ToString());
+            }
+
+            Message clientDisconnectedListMessage = new Message
+            {
+                ReceiverClientID = clientID,
+                MessageType = MessageType.ClientDisconnectedList,
+                MessageBody = string.Join(",", disconnectedClients.ToArray())
+            };
+            Message clientListMessage = new Message
+            {
+                ReceiverClientID = null,
+                MessageType = MessageType.ClientList,
+                MessageBody = string.Join(",", connectedClients.Keys.ToArray())
+            };
+            Message im = new Message
+            {
+                SenderClientID = null,
+                ReceiverClientID = null,
+                MessageType = MessageType.ClientQuitUpdate,
+                MessageBody = clientID.ToString(),
+                Broadcast = false
+            };
+
+            handler.Shutdown(SocketShutdown.Both);
+            handler.Close();
+
+            foreach (Socket s in connectedClients.Values)
+            {
+                SendPacket(clientDisconnectedListMessage, s);
+                SendPacket(clientListMessage, s);
+                SendPacket(im, s);
             }
         }
 

@@ -6,11 +6,10 @@ namespace ClientAPI.Messaging
 {
     public class MessageParser
     {
-        public enum States
+        internal enum States
         {
             Empty,
-            Listening,
-            End
+            Listening
         }
 
         States currentState = States.Empty;

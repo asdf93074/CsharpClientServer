@@ -70,16 +70,19 @@ namespace ClientApiConsumer
                         }
                         else if (im.MessageType == MessageType.ClientDisconnectedList)
                         {
-                            string[] disconnectedClientListString = im.MessageBody.ToString().Split(',');
                             List<string> disconnectedClientList = new List<string>();
 
-                            foreach (string clientid in disconnectedClientListString)
+                            if (im.MessageBody.ToString() != "")
                             {
-                                disconnectedClientList.Add(clientid);
+                                string[] disconnectedClientListString = im.MessageBody.ToString().Split(',');
+
+                                foreach (string clientid in disconnectedClientListString)
+                                {
+                                    disconnectedClientList.Add(clientid);
+                                }
                             }
 
                             client.disconnectedClientList = disconnectedClientList;
-
                             Console.WriteLine("[ClientDisconnectedListUpdate] [{0}]", string.Join(",", client.disconnectedClientList.ToArray()));
                         }
                         else if (im.MessageType == MessageType.ClientJoinUpdate)
@@ -181,70 +184,75 @@ namespace ClientApiConsumer
                     Console.WriteLine("6. Quit.");
                     Console.WriteLine("-----------------------------------------------------------");
 
-                    int option = Int32.Parse(Console.ReadLine());
-
-                    switch (option)
+                    int option;
+                    if (Int32.TryParse(Console.ReadLine(), out option))
                     {
-                        case 1:
-                            Console.WriteLine("[{0}]", string.Join(",", client.clientList.ToArray()));
-                            break;
-                        case 2:
-                            SendMessage();
-                            break;
-                        case 3:
-                            BroadcastMessage();
-                            break;
-                        case 4:
-                            if (client.isConnected == false)
-                            {
-                                Console.WriteLine("You are not connected to the server.");
-                            }
-                            else
-                            {
-                                Console.WriteLine("Disconnecting from the server.");
-
-                                client.Quit();
-                            }
-                            break;
-                        case 5:
-                            if (client.isConnected == true)
-                            {
-                                Console.WriteLine("You are connected to the server already.");
-                            }
-                            else
-                            {
-                                Console.WriteLine("Attempting to connect to the server.");
-
-                                if (client.Reconnect(ip))
+                        switch (option)
+                        {
+                            case 1:
+                                Console.WriteLine("[{0}]", string.Join(",", client.clientList.ToArray()));
+                                break;
+                            case 2:
+                                SendMessage();
+                                break;
+                            case 3:
+                                BroadcastMessage();
+                                break;
+                            case 4:
+                                if (client.isConnected == false)
                                 {
-                                    receivingThread = new Thread(() => HandleReceive());
-                                    receivingThread.Start();
-                                    Console.WriteLine("Connected to the server.");
+                                    Console.WriteLine("You are not connected to the server.");
                                 }
                                 else
                                 {
-                                    Console.WriteLine("Failed to connect to the server.");
+                                    Console.WriteLine("Disconnecting from the server.");
+
+                                    client.Quit();
                                 }
-                            }
-                            break;
-                        case 6:
-                            Console.WriteLine("Quitting gracefully.");
+                                break;
+                            case 5:
+                                if (client.isConnected == true)
+                                {
+                                    Console.WriteLine("You are connected to the server already.");
+                                }
+                                else
+                                {
+                                    Console.WriteLine("Attempting to connect to the server.");
 
-                            if (client.isConnected)
-                            {
-                                client.Quit();
-                            }
+                                    if (client.Reconnect(ip))
+                                    {
+                                        receivingThread = new Thread(() => HandleReceive());
+                                        receivingThread.Start();
+                                        Console.WriteLine("Connected to the server.");
+                                    }
+                                    else
+                                    {
+                                        Console.WriteLine("Failed to connect to the server.");
+                                    }
+                                }
+                                break;
+                            case 6:
+                                Console.WriteLine("Quitting gracefully.");
 
-                            quit = 1;
-                            break;
-                        default:
-                            Console.WriteLine("Please enter a valid option.");
-                            break;
+                                if (client.isConnected)
+                                {
+                                    client.Quit();
+                                }
+
+                                quit = 1;
+                                break;
+                            default:
+                                Console.WriteLine("Please enter a valid option.");
+                                break;
+                        }
+                    } else
+                    {
+                        Console.WriteLine("Please enter a valid option.");
                     }
                 }
                 catch (FormatException)
                 {
-                    Console.WriteLine("Please enter a valid option.");
+                    
                 }
                 catch (SocketException se) when (se.SocketErrorCode == SocketError.ConnectionReset)
                 {

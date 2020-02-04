@@ -76,7 +76,7 @@ namespace ClientAPI
 
                 int bytesReceived = clientSocket.Receive(bytes);
 
-                Queue<byte[]> incomingPackets = new Queue<byte[]>();
+                Queue<byte[]> incomingPackets;
                 incomingPackets = receiverParser.ReceiverParser(bytes, bytesReceived);
                 Queue<Message> incomingMessages = new Queue<Message>();
 
