@@ -2,29 +2,17 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace ClientAPI
-{
+
+namespace ClientAPI.Messaging
+{ 
     [Serializable]
     public class Message : IMessage
     {
-        public enum messageType
-        {
-            ClientList,
-            ClientID,
-            ClientMessage,
-            ClientMessageFailure,
-            ClientJoin,
-            ClientJoinUpdate,
-            ClientQuit,
-            ClientQuitUpdate,
-            Incomplete
-        };
-
         private string _senderClientID;
         private string _receiverClientID;
         private Object _messageBody;
         private bool _broadcast;
-        messageType _messageType;
+        MessageType _messageType;
 
         //copy-constructor
         public Message(Message im)
@@ -91,7 +79,7 @@ namespace ClientAPI
             }
         }
 
-        public messageType MessageType
+        public MessageType MessageType
         {
             get
             {

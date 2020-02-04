@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Text;
 
-namespace ClientAPI
+namespace ClientAPI.Messaging
 {
     public class MessageParser
     {

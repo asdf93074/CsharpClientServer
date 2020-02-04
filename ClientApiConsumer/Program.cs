@@ -6,6 +6,7 @@ using System.Runtime.Serialization;
 using System.Collections.Generic;
 
 using ClientAPI;
+using ClientAPI.Messaging;
 
 namespace ClientApiConsumer
 {
@@ -25,21 +26,21 @@ namespace ClientApiConsumer
 
                     foreach (Message im in queue)
                     {
-                        if (im.MessageType == Message.messageType.ClientQuit)
+                        if (im.MessageType == MessageType.ClientQuit)
                         {
                             break;
                         }
-                        else if (im.MessageType == Message.messageType.Incomplete)
+                        else if (im.MessageType == MessageType.Incomplete)
                         {
                             //if we have incomplete data then wait for more data
                             continue;
                         }
-                        else if (im.MessageType == Message.messageType.ClientID)
+                        else if (im.MessageType == MessageType.ClientID)
                         {
                             client.clientID = im.MessageBody.ToString();
                             Console.WriteLine("[ClientID] ClientID is: {0}", im.MessageBody);
                         }
-                        else if (im.MessageType == Message.messageType.ClientMessage)
+                        else if (im.MessageType == MessageType.ClientMessage)
                         {
                             if (im.Broadcast == true)
                             {
@@ -50,14 +51,14 @@ namespace ClientApiConsumer
                                 Console.WriteLine("[ClientMessage] From Client: {0}, Message: {1}", im.SenderClientID, im.MessageBody);
                             }
                         }
-                        else if (im.MessageType == Message.messageType.ClientMessageFailure)
+                        else if (im.MessageType == MessageType.ClientMessageFailure)
                         {
                             Console.WriteLine("[ClientMessageFailure] Reason: {0}", im.MessageBody);
                         }
-                        else if (im.MessageType == Message.messageType.ClientList)
+                        else if (im.MessageType == MessageType.ClientList)
                         {
                             string[] clientListString = im.MessageBody.ToString().Split(',');
-                            ArrayList clientList = new ArrayList();
+                            List<string> clientList = new List<string>();
 
                             foreach (string clientid in clientListString)
                             {
@@ -68,15 +69,34 @@ namespace ClientApiConsumer
 
                             Console.WriteLine("[ClientListUpdate] [{0}]", string.Join(",", client.clientList.ToArray()));
                         }
-                        else if (im.MessageType == Message.messageType.ClientJoinUpdate)
+                        else if (im.MessageType == MessageType.ClientDisconnectedList)
+                        {
+                            string[] disconnectedClientListString = im.MessageBody.ToString().Split(',');
+                            List<string> disconnectedClientList = new List<string>();
+
+                            foreach (string clientid in disconnectedClientListString)
+                            {
+                                disconnectedClientList.Add(clientid);
+                            }
+
+                            client.disconnectedClientList = disconnectedClientList;
+
+                            Console.WriteLine("[ClientDisconnectedListUpdate] [{0}]", string.Join(",", client.disconnectedClientList.ToArray()));
+                        }
+                        else if (im.MessageType == MessageType.ClientJoinUpdate)
                         {
                             Console.WriteLine("[ClientJoinUpdate] Client {0} has joined the server.", im.MessageBody);
                         }
-                        else if (im.MessageType == Message.messageType.ClientQuitUpdate)
+                        else if (im.MessageType == MessageType.ClientQuitUpdate)
                         {
                             Console.WriteLine("[ClientQuitUpdate] Client {0} has left the server.", im.MessageBody);
                         }
                     }
+                }
+                catch (SocketException se) when (se.SocketErrorCode == SocketError.Interrupted)
+                {
+                    Console.WriteLine("[ReceivingThread] Thread aborted due to client disconnecting from server");
+                    break;
                 }
                 catch (SocketException se)
                 {
@@ -93,7 +113,7 @@ namespace ClientApiConsumer
 
         public static void SendMessage()
         {
-            if (client.clientList.Count == 1)
+            if (client.clientList.Count + client.disconnectedClientList.Count == 1)
             {
                 Console.WriteLine("You are the only client connected to the server.");
                 return;
@@ -102,7 +122,7 @@ namespace ClientApiConsumer
             Console.WriteLine("Enter the client id to be sent to:");
             string receivingClientID = Console.ReadLine();
 
-            while (!client.clientList.Contains(receivingClientID))
+            while (!client.clientList.Contains(receivingClientID) && !client.disconnectedClientList.Contains(receivingClientID))
             {
                 Console.WriteLine("Incorrect client id enterred. Please enter a valid client id.");
                 receivingClientID = Console.ReadLine();

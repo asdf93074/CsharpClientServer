@@ -5,6 +5,8 @@ using System.Collections;
 using System.Configuration;
 using System.Collections.Generic;
 
+using ClientAPI.Messaging;
+
 namespace ClientAPI
 { 
     public class Client
@@ -12,7 +14,8 @@ namespace ClientAPI
         public string clientID = "";
         public Socket clientSocket;
         public bool isConnected = false;
-        public ArrayList clientList;
+        public List<string> clientList;
+        public List<string> disconnectedClientList;
         MessageParser receiverParser = new MessageParser();
 
         public int StartClient(String userClientID, string ip = "127.0.0.1")
@@ -35,7 +38,7 @@ namespace ClientAPI
                     {
                         SenderClientID = userClientID,
                         ReceiverClientID = null,
-                        MessageType = Message.messageType.ClientJoin,
+                        MessageType = MessageType.ClientJoin,
                         MessageBody = clientID,
                         Broadcast = false
                     });
@@ -80,7 +83,7 @@ namespace ClientAPI
 
                 incomingMessages.Enqueue(new Message
                 {
-                    MessageType = Message.messageType.Incomplete
+                    MessageType = MessageType.Incomplete
                 });
 
                 if (incomingPackets.Count > 0)
@@ -121,7 +124,7 @@ namespace ClientAPI
                         ReceiverClientID = receivingClientID,
                         MessageBody = userInput,
                         Broadcast = false,
-                        MessageType = Message.messageType.ClientMessage
+                        MessageType = MessageType.ClientMessage
                     };
 
                     byte[] message = Serializer<Message>.Serialize(im);
@@ -155,7 +158,7 @@ namespace ClientAPI
                         SenderClientID = this.clientID,
                         ReceiverClientID = null,
                         MessageBody = userInput,
-                        MessageType = Message.messageType.ClientMessage,
+                        MessageType = MessageType.ClientMessage,
                         Broadcast = true
                     };
 
@@ -197,7 +200,7 @@ namespace ClientAPI
                 SenderClientID = null,
                 ReceiverClientID = null,
                 MessageBody = null,
-                MessageType = Message.messageType.ClientQuit,
+                MessageType = MessageType.ClientQuit,
                 Broadcast = false
             });
 

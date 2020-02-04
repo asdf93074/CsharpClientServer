@@ -1,6 +1,6 @@
 ﻿using System;
 
-using ClientAPI;
+using ClientAPI.Messaging;
 
 namespace ServerApp
 {
