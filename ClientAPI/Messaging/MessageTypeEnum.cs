@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace ClientAPI.Messaging
+﻿namespace ClientAPI.Messaging
 {
     public enum MessageType
     {
