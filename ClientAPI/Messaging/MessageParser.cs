@@ -6,16 +6,17 @@ namespace ClientAPI.Messaging
 {
     public class MessageParser
     {
-        internal enum States
+        public enum States
         {
             Empty,
             Listening
         }
 
-        States currentState = States.Empty;
+        public States currentState = States.Empty;
+        States prevState = States.Empty;
         int messageLength = 0;
         int messageLengthHeaderSize = 0;
-        List<byte[]> messageHolder = new List<byte[]>();
+        public List<byte[]> messageHolder = new List<byte[]>();
         Queue<byte[]> incomingMessageQueue = new Queue<byte[]>();
 
         //parses a message
@@ -29,16 +30,17 @@ namespace ClientAPI.Messaging
             while (true)
             {
                 bool morePackets = false;
+
+                byte[] b = new byte[bytesReceived];
+
+                Buffer.BlockCopy(byteArray, 0, b, 0, bytesReceived);
+
+                messageHolder.Add(b);
+
                 //if the parser hasn't started parsing anything or we still don't know the length of the payload
                 //so we keep adding the byteArray to our list and then check if we have a valid header for length
                 if (currentState == States.Empty)
                 {
-                    byte[] b = new byte[bytesReceived];
-
-                    Buffer.BlockCopy(byteArray, 0, b, 0, bytesReceived);
-
-                    messageHolder.Add(b);
-
                     string payloadLength = null;
                     string completeMessage = Encoding.ASCII.GetString(CompleteByteArray());
                     //check for the starting of the length header "<"
@@ -59,6 +61,7 @@ namespace ClientAPI.Messaging
                         }
                     }
 
+                    // not required since default value is false
                     if (currentState != States.Listening)
                     {
                         morePackets = false;
@@ -69,7 +72,7 @@ namespace ClientAPI.Messaging
                 if (currentState == States.Listening)
                 {
                     byte[] wholeMessage = CompleteByteArray();
-                    byte[] message = new byte[wholeMessage.Length];
+                    byte[] message = new byte[messageLength];
 
                     //check if we have the whole packet as specified by the length header
                     if (messageLength + messageLengthHeaderSize <= wholeMessage.Length)
@@ -93,12 +96,14 @@ namespace ClientAPI.Messaging
                         //also change the receivedBytes value to totalBytes - bytesInCurrentPacket
                         if (morePackets)
                         {
-                            for (int i = 0; i < wholeMessage.Length; i++)
+                            Console.WriteLine("MORE PACKETS {0} {1} {2}", wholeMessage.Length, messageLength,
+                                messageLengthHeaderSize);
+                            for (int i = 0; i < byteArray.Length; i++)
                             {
                                 int offset = i + messageLength + messageLengthHeaderSize;
                                 if (offset < wholeMessage.Length)
                                 {
-                                    byteArray[i] = byteArray[offset];
+                                    byteArray[i] = wholeMessage[offset];
                                 }
                                 else
                                 {
@@ -109,9 +114,11 @@ namespace ClientAPI.Messaging
                             bytesReceived = wholeMessage.Length - messageLength - messageLengthHeaderSize;
                         }
 
+                        // clearing for next packet
                         messageLength = 0;
                         messageLengthHeaderSize = 0;
                         messageHolder.RemoveRange(0, messageHolder.Count);
+                        Console.WriteLine(messageHolder.Count.ToString());
                     }
                 }
 
