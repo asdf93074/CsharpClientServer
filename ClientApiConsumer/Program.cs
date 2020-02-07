@@ -12,6 +12,7 @@ namespace ClientApiConsumer
     public class Program
     {
         static Client client;
+        private static readonly object _listLock = new object();
 
         public static void HandleReceive()
         {
@@ -64,7 +65,10 @@ namespace ClientApiConsumer
                                 clientList.Add(clientid);
                             }
 
-                            client.clientList = clientList;
+                            lock (_listLock)
+                            {
+                                client.clientList = clientList;
+                            }
 
                             Console.WriteLine("[ClientListUpdate] [{0}]", string.Join(",", client.clientList.ToArray()));
                         }
@@ -82,7 +86,11 @@ namespace ClientApiConsumer
                                 }
                             }
 
-                            client.disconnectedClientList = disconnectedClientList;
+                            lock (_listLock)
+                            {
+                                client.disconnectedClientList = disconnectedClientList;
+                            }
+
                             Console.WriteLine("[ClientDisconnectedListUpdate] [{0}]", string.Join(",", client.disconnectedClientList.ToArray()));
                         }
                         else if (im.MessageType == MessageType.ClientJoinUpdate)
@@ -124,11 +132,21 @@ namespace ClientApiConsumer
             Console.WriteLine("Enter the client id to be sent to:");
             string receivingClientID = Console.ReadLine();
 
+            //lock
+            Monitor.Enter(_listLock);
             while (!client.clientList.Contains(receivingClientID) && !client.disconnectedClientList.Contains(receivingClientID))
             {
+                //unlock
+                Monitor.Exit(_listLock);
+
                 Console.WriteLine("Incorrect client id enterred. Please enter a valid client id.");
                 receivingClientID = Console.ReadLine();
+
+                //lock
+                Monitor.Enter(_listLock);
             }
+            //unlock
+            Monitor.Exit(_listLock);
 
             Console.WriteLine("Enter your message:");
             string userInput = Console.ReadLine();
@@ -249,10 +267,6 @@ namespace ClientApiConsumer
                     {
                         Console.WriteLine("Please enter a valid option.");
                     }
-                }
-                catch (FormatException)
-                {
-                    
                 }
                 catch (SocketException se) when (se.SocketErrorCode == SocketError.ConnectionReset)
                 {

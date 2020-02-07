@@ -12,8 +12,7 @@ namespace ClientAPI.Messaging
             Listening
         }
 
-        public States currentState = States.Empty;
-        States prevState = States.Empty;
+        States currentState = States.Empty;
         int messageLength = 0;
         int messageLengthHeaderSize = 0;
         public List<byte[]> messageHolder = new List<byte[]>();
@@ -96,8 +95,6 @@ namespace ClientAPI.Messaging
                         //also change the receivedBytes value to totalBytes - bytesInCurrentPacket
                         if (morePackets)
                         {
-                            Console.WriteLine("MORE PACKETS {0} {1} {2}", wholeMessage.Length, messageLength,
-                                messageLengthHeaderSize);
                             for (int i = 0; i < byteArray.Length; i++)
                             {
                                 int offset = i + messageLength + messageLengthHeaderSize;
@@ -118,7 +115,6 @@ namespace ClientAPI.Messaging
                         messageLength = 0;
                         messageLengthHeaderSize = 0;
                         messageHolder.RemoveRange(0, messageHolder.Count);
-                        Console.WriteLine(messageHolder.Count.ToString());
                     }
                 }
 
