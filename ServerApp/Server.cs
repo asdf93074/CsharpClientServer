@@ -15,6 +15,10 @@ namespace ServerApp
 {
     public class Server
     {
+        public delegate void ClientListUpdate();
+
+        public event ClientListUpdate ClientListUpdateEvent;
+
         Dictionary<int, string> messageFailureErrorCodes = new Dictionary<int, string>
         {
             [1] = "Client ID is incorrect.",
@@ -29,6 +33,11 @@ namespace ServerApp
 
         public int currentClient = 0;
 
+        public void SendClientListToClient(object obj, EventArgs e)
+        {
+            
+        }
+
         public void AcceptConnection(Socket handler)
         {
             string clientID = null;
@@ -39,12 +48,26 @@ namespace ServerApp
             Message clientDisconnectedListMessage = new Message();
             MessageParser parser = new MessageParser();
 
+            //thread-specific anonymous function to handle a change in clientList
+            //storing it in a variable so we can unsubscribe from it later
+            ClientListUpdate ClientListUpdateEventHandler = () =>
+            {
+                Message clientListMessage = new Message();
+
+                clientListMessage.ReceiverClientID = currentClient.ToString();
+                clientListMessage.MessageType = MessageType.ClientList;
+                clientListMessage.MessageBody = string.Join(",", connectedClients.Keys.ToArray());
+
+                SendPacket(clientListMessage, handler);
+            }; ;
+
             while (true && handler.Connected)
             {
                 try
                 {
                     int bytesReceived = handler.Receive(bytes);
                     Queue<byte[]> incoming = parser.ReceiverParser(bytes, bytesReceived);
+
                     foreach (byte[] data in incoming)
                     {
                         if (data != null)
@@ -64,6 +87,9 @@ namespace ServerApp
                                     }
                                 }
 
+                                //subscribing the client to the server for update in clientList
+                                ClientListUpdateEvent += ClientListUpdateEventHandler;
+
                                 Log.Information("[Client] Client {0} connected. IP: {1};", clientID, handler.RemoteEndPoint.ToString());
 
                                 clientIDMessage.ReceiverClientID = clientID;
@@ -77,15 +103,8 @@ namespace ServerApp
                                 clientDisconnectedListMessage.MessageBody = string.Join(",", disconnectedClients.ToArray());
                                 SendPacket(clientDisconnectedListMessage, handler);
 
-                                clientListMessage.ReceiverClientID = currentClient.ToString();
-                                clientListMessage.MessageType = MessageType.ClientList;
-                                clientListMessage.MessageBody = string.Join(",", connectedClients.Keys.ToArray());
-
-                                //sends the list of clients to every client
-                                foreach (Socket s in connectedClients.Values)
-                                {
-                                    SendPacket(clientListMessage, s);
-                                }
+                                //raising ClientListUpdateEvent since clientList has changed
+                                ClientListUpdateEvent?.Invoke();
 
                                 Message joinUpdateMessage = new Message
                                 {
@@ -111,7 +130,7 @@ namespace ServerApp
                             {
                                 Log.Information("[ClientDisconnected] Client {0} has disconnected (gracefully).", clientID);
 
-                                OnClientDisconnect(clientID, handler);
+                                OnClientDisconnect(clientID, handler, ClientListUpdateEventHandler);
 
                                 break;
                             }
@@ -187,20 +206,21 @@ namespace ServerApp
                 {
                     Log.Information("[ClientDisconnected] Client {0} has disconnected (forcibly closed).", clientID);
 
-                    OnClientDisconnect(clientID, handler);
+                    OnClientDisconnect(clientID, handler, ClientListUpdateEventHandler);
 
                     break;
                 }
             }
         }
 
-        public void OnClientDisconnect(string clientID, Socket handler)
+        public void OnClientDisconnect(string clientID, Socket handler, ClientListUpdate clientListUpdateHandler)
         {
             //separate disconnect function as the functionality for handling a disconnect is the same
             //even if the client crashes/is forcibly closed or even if it closes gracefully
             //(by sending a ClientQuit packet)
             lock (_messsageQueuesLocker)
             {
+                ClientListUpdateEvent -= clientListUpdateHandler;
                 connectedClients.Remove(clientID.ToString());
                 disconnectedClients.Add(clientID.ToString());
             }
@@ -211,12 +231,7 @@ namespace ServerApp
                 MessageType = MessageType.ClientDisconnectedList,
                 MessageBody = string.Join(",", disconnectedClients.ToArray())
             };
-            Message clientListMessage = new Message
-            {
-                ReceiverClientID = null,
-                MessageType = MessageType.ClientList,
-                MessageBody = string.Join(",", connectedClients.Keys.ToArray())
-            };
+
             Message im = new Message
             {
                 SenderClientID = null,
@@ -232,9 +247,9 @@ namespace ServerApp
             foreach (Socket s in connectedClients.Values)
             {
                 SendPacket(clientDisconnectedListMessage, s);
-                SendPacket(clientListMessage, s);
                 SendPacket(im, s);
             }
+            ClientListUpdateEvent?.Invoke();
         }
 
         public void SendPacket(Message data, Socket sender)
