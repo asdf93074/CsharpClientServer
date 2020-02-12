@@ -52,8 +52,6 @@ namespace ServerApp
             //storing it in a variable so we can unsubscribe from it later
             ClientListUpdate ClientListUpdateEventHandler = () =>
             {
-                Message clientListMessage = new Message();
-
                 clientListMessage.ReceiverClientID = currentClient.ToString();
                 clientListMessage.MessageType = MessageType.ClientList;
                 clientListMessage.MessageBody = string.Join(",", connectedClients.Keys.ToArray());
