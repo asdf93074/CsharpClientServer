@@ -13,8 +13,8 @@ namespace ClientAPI
         public string clientID = "";
         public Socket clientSocket;
         public bool isConnected = false;
-        public List<string> clientList;
-        public List<string> disconnectedClientList;
+        public List<string> clientList = new List<string>();
+        public List<string> disconnectedClientList = new List<string>();
         MessageParser receiverParser = new MessageParser();
 
         public int StartClient(String userClientID, string ip = "127.0.0.1")

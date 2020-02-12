@@ -141,7 +141,7 @@ namespace ClientAPI.Messaging
             foreach (var b in messageHolder)
             {
                 Buffer.BlockCopy(b, 0, completeArray, prevLength, b.Length);
-                prevLength = b.Length;
+                prevLength += b.Length;
             }
 
             return completeArray;
