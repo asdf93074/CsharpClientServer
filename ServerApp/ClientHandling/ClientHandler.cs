@@ -213,7 +213,7 @@ namespace ServerApp
         {
             try
             {
-                if (_clientSocket.Connected && _isConnected)
+                if (_isConnected)
                 {
                     //separate disconnect function as the functionality for handling a disconnect is the same
                     //even if the client crashes/is forcibly closed or even if it closes gracefully

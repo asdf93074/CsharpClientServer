@@ -356,12 +356,9 @@ namespace ClientApiConsumer
             Console.WriteLine("Enter the server ip:");
             string ip = Console.ReadLine();
 
-            Console.WriteLine("Enter your id:");
-            string userClientID = Console.ReadLine();
-
             try
             {
-                int sc = client.StartClient(userClientID, ip);
+                int sc = client.StartClient(null, ip, false);
                 if (sc == 0)
                 {
                     RunClient(ip);

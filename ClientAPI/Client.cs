@@ -17,7 +17,7 @@ namespace ClientAPI
         public List<string> disconnectedClientList = new List<string>();
         MessageParser receiverParser = new MessageParser();
 
-        public int StartClient(String userClientID, string ip = "127.0.0.1", bool reconnect = false)
+        public int StartClient(String userClientID = null, string ip = "127.0.0.1", bool reconnect = false)
         {
             try
             {
