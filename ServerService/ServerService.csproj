@@ -112,6 +112,9 @@
     <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\ServerApp\ClientHandling\ClientManager.cs">
+      <Link>ClientManager.cs</Link>
+    </Compile>
     <Compile Include="..\ServerApp\Server.cs">
       <Link>Server.cs</Link>
     </Compile>

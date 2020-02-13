@@ -1,328 +1,292 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Configuration;
-using System.Linq;
 using System.Net;
 using System.Net.Sockets;
-using System.Runtime.Serialization;
-using System.Threading;
-using Serilog;
 
-using ClientAPI;
-using ClientAPI.Messaging;
+using Serilog;
 
 namespace ServerApp
 {
     public class Server
     {
-        public delegate void ClientListUpdate();
-
-        public event ClientListUpdate ClientListUpdateEvent;
-
-        Dictionary<int, string> messageFailureErrorCodes = new Dictionary<int, string>
-        {
-            [1] = "Client ID is incorrect.",
-            [2] = "Client is offline at the moment. Will hold message if it comes back."
-        };
-
-        private static readonly object _messsageQueuesLocker = new object();
-        Dictionary<string, Queue<TimestampedMessage>> messageQueues = new Dictionary<string, Queue<TimestampedMessage>>();
-
-        Dictionary<string, Socket> connectedClients = new Dictionary<string, Socket>();
-        List<string> disconnectedClients = new List<string>();
-
         public int currentClient = 0;
 
-        public void SendClientListToClient(object obj, EventArgs e)
-        {
-            
-        }
+        public ClientManager _clientManager = new ClientManager();
 
-        public void AcceptConnection(Socket handler)
-        {
-            string clientID = null;
-            byte[] bytes = new byte[1024];
+        //public void AcceptConnection(Socket handler)
+        //{
+        //    string clientID = null;
+        //    byte[] bytes = new byte[1024];
 
-            Message clientIDMessage = new Message();
-            Message clientListMessage = new Message();
-            Message clientDisconnectedListMessage = new Message();
-            MessageParser parser = new MessageParser();
+        //    Message clientIDMessage = new Message();
+        //    Message clientListMessage = new Message();
+        //    Message clientDisconnectedListMessage = new Message();
+        //    MessageParser parser = new MessageParser();
 
-            //thread-specific anonymous function to handle a change in clientList
-            //storing it in a variable so we can unsubscribe from it later
-            ClientListUpdate ClientListUpdateEventHandler = () =>
-            {
-                clientListMessage.ReceiverClientID = currentClient.ToString();
-                clientListMessage.MessageType = MessageType.ClientList;
-                clientListMessage.MessageBody = string.Join(",", connectedClients.Keys.ToArray());
+        //    //thread-specific anonymous function to handle a change in clientList
+        //    //storing it in a variable so we can unsubscribe from it later
+        //    ClientListUpdate ClientListUpdateEventHandler = () =>
+        //    {
+        //        clientListMessage.ReceiverClientID = currentClient.ToString();
+        //        clientListMessage.MessageType = MessageType.ClientList;
+        //        clientListMessage.MessageBody = string.Join(",", connectedClients.Keys.ToArray());
 
-                SendPacket(clientListMessage, handler);
-            }; ;
+        //        SendPacket(clientListMessage, handler);
+        //    };
 
-            while (true && handler.Connected)
-            {
-                try
-                {
-                    int bytesReceived = handler.Receive(bytes);
-                    Queue<byte[]> incoming = parser.ReceiverParser(bytes, bytesReceived);
+        //    while (true && handler.Connected)
+        //    {
+        //        try
+        //        {
+        //            int bytesReceived = handler.Receive(bytes);
+        //            Queue<byte[]> incoming = parser.ReceiverParser(bytes, bytesReceived);
 
-                    foreach (byte[] data in incoming)
-                    {
-                        if (data != null)
-                        {
-                            Message im = Serializer<Message>.Deserialize(data);
+        //            foreach (byte[] data in incoming)
+        //            {
+        //                if (data != null)
+        //                {
+        //                    Message im = Serializer<Message>.Deserialize(data);
 
-                            if (im.MessageType == MessageType.ClientJoin)
-                            {
-                                clientID = im.SenderClientID;
+        //                    if (im.MessageType == MessageType.ClientJoin)
+        //                    {
+        //                        clientID = im.SenderClientID;
 
-                                lock (_messsageQueuesLocker)
-                                {
-                                    connectedClients.Add(clientID, handler);
-                                    if (disconnectedClients.Contains(clientID.ToString()))
-                                    {
-                                        disconnectedClients.Remove(clientID.ToString());
-                                    }
-                                }
+        //                        lock (_messageQueuesLocker)
+        //                        {
+        //                            connectedClients.Add(clientID, handler);
+        //                            if (disconnectedClients.Contains(clientID.ToString()))
+        //                            {
+        //                                disconnectedClients.Remove(clientID.ToString());
+        //                            }
+        //                        }
 
-                                //subscribing the client to the server for update in clientList
-                                ClientListUpdateEvent += ClientListUpdateEventHandler;
+        //                        //subscribing the client to the server for update in clientList
+        //                        ClientListUpdateEvent += ClientListUpdateEventHandler;
 
-                                Log.Information("[Client] Client {0} connected. IP: {1};", clientID, handler.RemoteEndPoint.ToString());
+        //                        Log.Information("[Client] Client {0} connected. IP: {1};", clientID, handler.RemoteEndPoint.ToString());
 
-                                clientIDMessage.ReceiverClientID = clientID;
-                                clientIDMessage.MessageType = MessageType.ClientID;
-                                clientIDMessage.MessageBody = clientID;
-                                SendPacket(clientIDMessage, handler);
+        //                        clientIDMessage.ReceiverClientID = clientID;
+        //                        clientIDMessage.MessageType = MessageType.ClientID;
+        //                        clientIDMessage.MessageBody = clientID;
+        //                        SendPacket(clientIDMessage, handler);
 
-                                //sending a list of previously connected (currently disconnected) clients
-                                clientDisconnectedListMessage.ReceiverClientID = clientID;
-                                clientDisconnectedListMessage.MessageType = MessageType.ClientDisconnectedList;
-                                clientDisconnectedListMessage.MessageBody = string.Join(",", disconnectedClients.ToArray());
-                                SendPacket(clientDisconnectedListMessage, handler);
+        //                        //sending a list of previously connected (currently disconnected) clients
+        //                        clientDisconnectedListMessage.ReceiverClientID = clientID;
+        //                        clientDisconnectedListMessage.MessageType = MessageType.ClientDisconnectedList;
+        //                        clientDisconnectedListMessage.MessageBody = string.Join(",", disconnectedClients.ToArray());
+        //                        SendPacket(clientDisconnectedListMessage, handler);
 
-                                //raising ClientListUpdateEvent since clientList has changed
-                                ClientListUpdateEvent?.Invoke();
+        //                        //TODO - send both of the above messages together
 
-                                Message joinUpdateMessage = new Message
-                                {
-                                    SenderClientID = null,
-                                    ReceiverClientID = null,
-                                    MessageType = MessageType.ClientJoinUpdate,
-                                    MessageBody = clientID.ToString(),
-                                    Broadcast = false
-                                };
+        //                        //raising ClientListUpdateEvent since clientList has changed
+        //                        ClientListUpdateEvent?.Invoke();
 
-                                //lets all the clients know that another client has joined the server
-                                foreach (Socket s in connectedClients.Values)
-                                {
-                                    if (!s.Equals(handler))
-                                    {
-                                        SendPacket(joinUpdateMessage, s);
-                                    }
-                                }
+        //                        Message joinUpdateMessage = new Message
+        //                        {
+        //                            SenderClientID = null,
+        //                            ReceiverClientID = null,
+        //                            MessageType = MessageType.ClientJoinUpdate,
+        //                            MessageBody = clientID.ToString(),
+        //                            Broadcast = false
+        //                        };
 
-                                currentClient++;
-                            }
-                            else if (im.MessageType == MessageType.ClientQuit)
-                            {
-                                Log.Information("[ClientDisconnected] Client {0} has disconnected (gracefully).", clientID);
+        //                        //lets all the clients know that another client has joined the server
+        //                        foreach (Socket s in connectedClients.Values)
+        //                        {
+        //                            if (!s.Equals(handler))
+        //                            {
+        //                                SendPacket(joinUpdateMessage, s);
+        //                            }
+        //                        }
 
-                                OnClientDisconnect(clientID, handler, ClientListUpdateEventHandler);
+        //                        currentClient++;
+        //                    }
+        //                    else if (im.MessageType == MessageType.ClientQuit)
+        //                    {
+        //                        Log.Information("[ClientDisconnected] Client {0} has disconnected (gracefully).", clientID);
 
-                                break;
-                            }
-                            else if (im.MessageType == MessageType.ClientMessage)
-                            {
-                                if (im.Broadcast == true)
-                                {
-                                    Log.Information("[Broadcast] Client: {0} -> All clients, Message: {1}", im.SenderClientID, im.MessageBody);
+        //                        OnClientDisconnect(clientID, handler, ClientListUpdateEventHandler);
 
-                                    foreach (Socket s in connectedClients.Values)
-                                    {
-                                        if (!s.Equals(handler))
-                                        {
-                                            SendPacket(im, s);
-                                        }
-                                    }
-                                }
-                                else if (connectedClients.ContainsKey(im.ReceiverClientID))
-                                {
-                                    Log.Information("[ClientMessage] Client: {0} -> Client: {1}, Message: {2}", im.SenderClientID, im.ReceiverClientID,
-                                    im.MessageBody);
+        //                        break;
+        //                    }
+        //                    else if (im.MessageType == MessageType.ClientMessage)
+        //                    {
+        //                        if (im.Broadcast == true)
+        //                        {
+        //                            Log.Information("[Broadcast] Client: {0} -> All clients, Message: {1}", im.SenderClientID, im.MessageBody);
 
-                                    Socket receiver = connectedClients[im.ReceiverClientID];
+        //                            foreach (Socket s in connectedClients.Values)
+        //                            {
+        //                                if (!s.Equals(handler))
+        //                                {
+        //                                    SendPacket(im, s);
+        //                                }
+        //                            }
+        //                        }
+        //                        else if (connectedClients.ContainsKey(im.ReceiverClientID))
+        //                        {
+        //                            Log.Information("[ClientMessage] Client: {0} -> Client: {1}, Message: {2}", im.SenderClientID, im.ReceiverClientID,
+        //                            im.MessageBody);
 
-                                    SendPacket(im, receiver);
-                                }
-                                else if (disconnectedClients.Contains(im.ReceiverClientID))
-                                {
-                                    Log.Information("[ClientMessageFailure] Client: {0} -> Client: {1}, Message: {2}", im.SenderClientID, im.ReceiverClientID,
-                                    im.MessageBody);
+        //                            Socket receiver = connectedClients[im.ReceiverClientID];
 
-                                    lock (_messsageQueuesLocker)
-                                    {
-                                        //adding message to queue for clients
-                                        if (!messageQueues.ContainsKey(im.ReceiverClientID))
-                                        {
-                                            messageQueues.Add(im.ReceiverClientID, new Queue<TimestampedMessage>());
-                                        }
+        //                            SendPacket(im, receiver);
+        //                        }
+        //                        else if (disconnectedClients.Contains(im.ReceiverClientID))
+        //                        {
+        //                            Log.Information("[ClientMessageFailure] Client: {0} -> Client: {1}, Message: {2}", im.SenderClientID, im.ReceiverClientID,
+        //                            im.MessageBody);
 
-                                        messageQueues[im.ReceiverClientID].Enqueue(new TimestampedMessage
-                                        {
-                                            receivedAt = DateTime.Now,
-                                            message = new Message(im)
-                                        });
-                                    }
+        //                            lock (_messageQueuesLocker)
+        //                            {
+        //                                //adding message to queue for clients
+        //                                if (!messageQueues.ContainsKey(im.ReceiverClientID))
+        //                                {
+        //                                    messageQueues.Add(im.ReceiverClientID, new Queue<TimestampedMessage>());
+        //                                }
 
-                                    Log.Information("Message queue for client: {0}, length: {1}", im.ReceiverClientID, messageQueues[im.ReceiverClientID].Count);
+        //                                messageQueues[im.ReceiverClientID].Enqueue(new TimestampedMessage
+        //                                {
+        //                                    receivedAt = DateTime.Now,
+        //                                    message = new Message(im)
+        //                                });
+        //                            }
 
-                                    im.MessageType = MessageType.ClientMessageFailure;
-                                    im.MessageBody = messageFailureErrorCodes[2];
+        //                            Log.Information("Message queue for client: {0}, length: {1}", im.ReceiverClientID, messageQueues[im.ReceiverClientID].Count);
 
-                                    SendPacket(im, handler);
-                                }
-                                else
-                                {
-                                    Log.Information("[ClientMessageIncorrectID] Client: {0} -> Client: {1}, Message: {2}", im.SenderClientID, im.ReceiverClientID,
-                                    im.MessageBody);
+        //                            im.MessageType = MessageType.ClientMessageFailure;
+        //                            im.MessageBody = messageFailureErrorCodes[2];
 
-                                    im.MessageType = MessageType.ClientMessageFailure;
-                                    im.MessageBody = messageFailureErrorCodes[1];
+        //                            SendPacket(im, handler);
+        //                        }
+        //                        else
+        //                        {
+        //                            Log.Information("[ClientMessageIncorrectID] Client: {0} -> Client: {1}, Message: {2}", im.SenderClientID, im.ReceiverClientID,
+        //                            im.MessageBody);
 
-                                    SendPacket(im, handler);
-                                }
-                            }
-                        }
-                    }
-                }
-                catch (SerializationException se)
-                {
-                    Log.Error("SerializationException (Client probably went down or disconnected): {0}", se.ToString());
-                }
-                catch (SocketException)
-                {
-                    Log.Information("[ClientDisconnected] Client {0} has disconnected (forcibly closed).", clientID);
+        //                            im.MessageType = MessageType.ClientMessageFailure;
+        //                            im.MessageBody = messageFailureErrorCodes[1];
 
-                    OnClientDisconnect(clientID, handler, ClientListUpdateEventHandler);
+        //                            SendPacket(im, handler);
+        //                        }
+        //                    }
+        //                }
+        //            }
+        //        }
+        //        catch (SerializationException se)
+        //        {
+        //            Log.Error("SerializationException (Client probably went down or disconnected): {0}", se.ToString());
+        //        }
+        //        catch (SocketException)
+        //        {
+        //            Log.Information("[ClientDisconnected] Client {0} has disconnected (forcibly closed).", clientID);
 
-                    break;
-                }
-            }
-        }
+        //            OnClientDisconnect(clientID, handler, ClientListUpdateEventHandler);
 
-        public void OnClientDisconnect(string clientID, Socket handler, ClientListUpdate clientListUpdateHandler)
-        {
-            //separate disconnect function as the functionality for handling a disconnect is the same
-            //even if the client crashes/is forcibly closed or even if it closes gracefully
-            //(by sending a ClientQuit packet)
-            lock (_messsageQueuesLocker)
-            {
-                ClientListUpdateEvent -= clientListUpdateHandler;
-                connectedClients.Remove(clientID.ToString());
-                disconnectedClients.Add(clientID.ToString());
-            }
+        //            break;
+        //        }
+        //    }
+        //}
 
-            Message clientDisconnectedListMessage = new Message
-            {
-                ReceiverClientID = clientID,
-                MessageType = MessageType.ClientDisconnectedList,
-                MessageBody = string.Join(",", disconnectedClients.ToArray())
-            };
+        //public void OnClientDisconnect(string clientID, Socket handler, ClientListUpdate clientListUpdateHandler)
+        //{
+        //    //separate disconnect function as the functionality for handling a disconnect is the same
+        //    //even if the client crashes/is forcibly closed or even if it closes gracefully
+        //    //(by sending a ClientQuit packet)
+        //    lock (_messageQueuesLocker)
+        //    {
+        //        ClientListUpdateEvent -= clientListUpdateHandler;
+        //        connectedClients.Remove(clientID.ToString());
+        //        disconnectedClients.Add(clientID.ToString());
+        //    }
 
-            Message im = new Message
-            {
-                SenderClientID = null,
-                ReceiverClientID = null,
-                MessageType = MessageType.ClientQuitUpdate,
-                MessageBody = clientID.ToString(),
-                Broadcast = false
-            };
+        //    Message clientDisconnectedListMessage = new Message
+        //    {
+        //        ReceiverClientID = clientID,
+        //        MessageType = MessageType.ClientDisconnectedList,
+        //        MessageBody = string.Join(",", disconnectedClients.ToArray())
+        //    };
 
-            handler.Shutdown(SocketShutdown.Both);
-            handler.Close();
+        //    Message im = new Message
+        //    {
+        //        SenderClientID = null,
+        //        ReceiverClientID = null,
+        //        MessageType = MessageType.ClientQuitUpdate,
+        //        MessageBody = clientID.ToString(),
+        //        Broadcast = false
+        //    };
 
-            foreach (Socket s in connectedClients.Values)
-            {
-                SendPacket(clientDisconnectedListMessage, s);
-                SendPacket(im, s);
-            }
-            ClientListUpdateEvent?.Invoke();
-        }
+        //    handler.Shutdown(SocketShutdown.Both);
+        //    handler.Close();
 
-        public void SendPacket(Message data, Socket sender)
-        {
-            MessageParser parser = new MessageParser();
+        //    foreach (Socket s in connectedClients.Values)
+        //    {
+        //        SendPacket(clientDisconnectedListMessage, s);
+        //        SendPacket(im, s);
+        //    }
+        //    ClientListUpdateEvent?.Invoke();
+        //}
 
-            byte[] message = Serializer<Message>.Serialize(data);
+        //public void MessageQueuesHandler()
+        //{
+        //    while (true)
+        //    {
+        //        if (messageQueues.Count > 0)
+        //        {
+        //            lock (_messageQueuesLocker)
+        //            {
+        //                foreach (var q in messageQueues.Values)
+        //                {
+        //                    if (q.Count > 0)
+        //                    {
+        //                        TimestampedMessage result = q.Peek();
 
-            byte[] packet = parser.SenderParser(message);
+        //                        if ((DateTime.Now - result.receivedAt).TotalSeconds > 30)
+        //                        {
+        //                            Log.Information("[MessageQueueHandler] Deleting message: {0}, from: {1}, to: {2}", result.message.MessageBody, result.message.SenderClientID,
+        //                                result.message.ReceiverClientID);
+        //                            q.Dequeue();
+        //                        }
+        //                    }
+        //                }
 
-            int bytesSent = sender.Send(packet);
-        }
+        //                foreach (var k in messageQueues.Keys)
+        //                {
+        //                    if (connectedClients.ContainsKey(k))
+        //                    {
+        //                        for (int i = 0; i < messageQueues[k].Count; i++)
+        //                        {
+        //                            TimestampedMessage tm = messageQueues[k].Dequeue();
 
-        public void MessageQueuesHandler()
-        {
-            while (true)
-            {
-                if (messageQueues.Count > 0)
-                {
-                    lock (_messsageQueuesLocker)
-                    {
-                        foreach (var q in messageQueues.Values)
-                        {
-                            if (q.Count > 0)
-                            {
-                                TimestampedMessage result = q.Peek();
-
-                                if ((DateTime.Now - result.receivedAt).TotalSeconds > 30)
-                                {
-                                    Log.Information("[MessageQueueHandler] Deleting message: {0}, from: {1}, to: {2}", result.message.MessageBody, result.message.SenderClientID,
-                                        result.message.ReceiverClientID);
-                                    q.Dequeue();
-                                }
-                            }
-                        }
-
-                        foreach (var k in messageQueues.Keys)
-                        {
-                            if (connectedClients.ContainsKey(k))
-                            {
-                                for (int i = 0; i < messageQueues[k].Count; i++)
-                                {
-                                    TimestampedMessage tm = messageQueues[k].Dequeue();
-
-                                    SendPacket(tm.message, connectedClients[k]);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        //                            SendPacket(tm.message, connectedClients[k]);
+        //                        }
+        //                    }
+        //                }
+        //            }
+        //        }
+        //    }
+        //}
 
         public void StartServer()
         {
             byte[] bytes = new byte[1024];
 
-            IPEndPoint localEndPoint = new IPEndPoint(IPAddress.Any, Int32.Parse(ConfigurationManager.AppSettings["port"]));
-            Socket serverSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-
             try
             {
+                IPEndPoint localEndPoint = new IPEndPoint(IPAddress.Any, Int32.Parse(ConfigurationManager.AppSettings["port"]));
+                Socket serverSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+
                 serverSocket.Bind(localEndPoint);
                 serverSocket.Listen(10);
                 Log.Information("Waiting for clients.");
 
-                Thread messageQueuesHandler = new Thread(MessageQueuesHandler);
-                messageQueuesHandler.Start();
-
                 while (true)
                 {
                     Socket handler = serverSocket.Accept();
-                    Thread t = new Thread(() => AcceptConnection(handler));
-                    t.Start();
+
+                    _clientManager.AddClient(handler);
                 }
+
             }
             catch (SocketException se)
             {

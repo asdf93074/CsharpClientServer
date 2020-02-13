@@ -6,6 +6,7 @@ using System.Collections.Generic;
 
 using ClientAPI;
 using ClientAPI.Messaging;
+using System.Text;
 
 namespace ClientApiConsumer
 {

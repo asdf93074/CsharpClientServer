@@ -12,11 +12,11 @@ namespace ClientAPI.Messaging
             Listening
         }
 
-        States currentState = States.Empty;
-        int messageLength = 0;
-        int messageLengthHeaderSize = 0;
-        public List<byte[]> messageHolder = new List<byte[]>();
-        Queue<byte[]> incomingMessageQueue = new Queue<byte[]>();
+        States _currentState = States.Empty;
+        int _messageLength = 0;
+        int _messageLengthHeaderSize = 0;
+        public List<byte[]> _messageHolder = new List<byte[]>();
+        Queue<byte[]> _incomingMessageQueue = new Queue<byte[]>();
 
         //parses a message
         //the message should be in the following format
@@ -25,7 +25,7 @@ namespace ClientAPI.Messaging
         //returns (T) Empty Message - returns
         public Queue<byte[]> ReceiverParser(byte[] byteArray, int bytesReceived)
         {
-            incomingMessageQueue.Clear();
+            _incomingMessageQueue.Clear();
             while (true)
             {
                 bool morePackets = false;
@@ -34,11 +34,11 @@ namespace ClientAPI.Messaging
 
                 Buffer.BlockCopy(byteArray, 0, b, 0, bytesReceived);
 
-                messageHolder.Add(b);
+                _messageHolder.Add(b);
 
                 //if the parser hasn't started parsing anything or we still don't know the length of the payload
                 //so we keep adding the byteArray to our list and then check if we have a valid header for length
-                if (currentState == States.Empty)
+                if (_currentState == States.Empty)
                 {
                     string payloadLength = null;
                     string completeMessage = Encoding.ASCII.GetString(CompleteByteArray());
@@ -54,40 +54,40 @@ namespace ClientAPI.Messaging
                             }
 
                             //we know the length now we know how much to read in the next packets we get
-                            messageLength = Int32.Parse(payloadLength);
-                            messageLengthHeaderSize = Encoding.ASCII.GetBytes("<" + messageLength.ToString() + ">").Length;
-                            currentState = States.Listening;
+                            _messageLength = Int32.Parse(payloadLength);
+                            _messageLengthHeaderSize = Encoding.ASCII.GetBytes("<" + _messageLength.ToString() + ">").Length;
+                            _currentState = States.Listening;
                         }
                     }
 
                     // not required since default value is false
-                    if (currentState != States.Listening)
+                    if (_currentState != States.Listening)
                     {
                         morePackets = false;
                     }
                 }
 
                 //we know the length of the packet if we are in the listening state
-                if (currentState == States.Listening)
+                if (_currentState == States.Listening)
                 {
                     byte[] wholeMessage = CompleteByteArray();
-                    byte[] message = new byte[messageLength];
+                    byte[] message = new byte[_messageLength];
 
                     //check if we have the whole packet as specified by the length header
-                    if (messageLength + messageLengthHeaderSize <= wholeMessage.Length)
+                    if (_messageLength + _messageLengthHeaderSize <= wholeMessage.Length)
                     {
                         //if the total message size is more than what our header tells us
                         //then go back and check for new messages
-                        if (messageLength + messageLengthHeaderSize < wholeMessage.Length)
+                        if (_messageLength + _messageLengthHeaderSize < wholeMessage.Length)
                         {
                             morePackets = true;
                         }
 
-                        Buffer.BlockCopy(wholeMessage, messageLengthHeaderSize, message, 0, messageLength);
+                        Buffer.BlockCopy(wholeMessage, _messageLengthHeaderSize, message, 0, _messageLength);
 
-                        currentState = States.Empty;
+                        _currentState = States.Empty;
 
-                        incomingMessageQueue.Enqueue(message);
+                        _incomingMessageQueue.Enqueue(message);
 
                         //if there are more packets
                         //then shift the bytes after our current packet byte array to the beginning of the byte array
@@ -97,7 +97,7 @@ namespace ClientAPI.Messaging
                         {
                             for (int i = 0; i < byteArray.Length; i++)
                             {
-                                int offset = i + messageLength + messageLengthHeaderSize;
+                                int offset = i + _messageLength + _messageLengthHeaderSize;
                                 if (offset < wholeMessage.Length)
                                 {
                                     byteArray[i] = wholeMessage[offset];
@@ -108,19 +108,19 @@ namespace ClientAPI.Messaging
                                 }
                             }
 
-                            bytesReceived = wholeMessage.Length - messageLength - messageLengthHeaderSize;
+                            bytesReceived = wholeMessage.Length - _messageLength - _messageLengthHeaderSize;
                         }
 
                         // clearing for next packet
-                        messageLength = 0;
-                        messageLengthHeaderSize = 0;
-                        messageHolder.RemoveRange(0, messageHolder.Count);
+                        _messageLength = 0;
+                        _messageLengthHeaderSize = 0;
+                        _messageHolder.RemoveRange(0, _messageHolder.Count);
                     }
                 }
 
                 if (!morePackets)
                 {
-                    return incomingMessageQueue;
+                    return _incomingMessageQueue;
                 }
             }
         }
@@ -130,7 +130,7 @@ namespace ClientAPI.Messaging
         {
             int totalLength = 0;
 
-            foreach (var b in messageHolder)
+            foreach (var b in _messageHolder)
             {
                 totalLength += b.Length;
             }
@@ -138,7 +138,7 @@ namespace ClientAPI.Messaging
             byte[] completeArray = new byte[totalLength];
 
             int prevLength = 0;
-            foreach (var b in messageHolder)
+            foreach (var b in _messageHolder)
             {
                 Buffer.BlockCopy(b, 0, completeArray, prevLength, b.Length);
                 prevLength += b.Length;
