@@ -17,7 +17,7 @@ namespace ClientAPI
         public List<string> disconnectedClientList = new List<string>();
         MessageParser receiverParser = new MessageParser();
 
-        public int StartClient(String userClientID, string ip = "127.0.0.1")
+        public int StartClient(String userClientID, string ip = "127.0.0.1", bool reconnect = false)
         {
             try
             {
@@ -37,7 +37,7 @@ namespace ClientAPI
                     {
                         SenderClientID = userClientID,
                         ReceiverClientID = null,
-                        MessageType = MessageType.ClientJoin,
+                        MessageType = !reconnect? MessageType.ClientJoin : MessageType.ClientReconnect,
                         MessageBody = clientID,
                         Broadcast = false
                     });
@@ -179,7 +179,7 @@ namespace ClientAPI
 
         public bool Reconnect(String ip = "127.0.0.1")
         {
-            int sc = StartClient(clientID, ip);
+            int sc = StartClient(clientID, ip, true);
 
             if (sc == 0)
             {

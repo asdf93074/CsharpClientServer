@@ -112,8 +112,20 @@
     <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\ServerApp\ClientHandling\ClientHandler.cs">
+      <Link>ClientHandling\ClientHandler.cs</Link>
+    </Compile>
     <Compile Include="..\ServerApp\ClientHandling\ClientManager.cs">
-      <Link>ClientManager.cs</Link>
+      <Link>ClientHandling\ClientManager.cs</Link>
+    </Compile>
+    <Compile Include="..\ServerApp\Interfaces\IClient.cs">
+      <Link>Interfaces\IClient.cs</Link>
+    </Compile>
+    <Compile Include="..\ServerApp\Interfaces\IMessageQueue.cs">
+      <Link>Interfaces\IMessageQueue.cs</Link>
+    </Compile>
+    <Compile Include="..\ServerApp\MessageQueue\MessageQueue.cs">
+      <Link>MessageQueue\MessageQueue.cs</Link>
     </Compile>
     <Compile Include="..\ServerApp\Server.cs">
       <Link>Server.cs</Link>

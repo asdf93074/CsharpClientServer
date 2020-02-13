@@ -11,6 +11,7 @@
         ClientQuit,
         ClientQuitUpdate,
         Incomplete,
-        ClientDisconnectedList
+        ClientDisconnectedList,
+        ClientReconnect
     };
 }

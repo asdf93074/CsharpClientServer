@@ -17,25 +17,11 @@ namespace ServerApp
     {
         public string _clientID { get; set; }
         public MessageParser _parser { get; set; }
-        public Socket _clientSocket 
-        { 
-            get 
-            {
-                if (_isConnected)
-                    return this._clientSocket;
-
-                return null;
-            }
-
-            set
-            {
-                this._clientSocket = value;
-            }
-        }
+        public Socket _clientSocket { get; set; }
         public bool _isConnected { get; set; } = false;
         public Thread _clientThread { get; set; }
 
-        public ClientManager _clientManager;
+        public ClientManager _clientManager { get; set; }
 
         ClientManager.ClientListUpdate _ClientListUpdateEventHandler;
 
@@ -97,12 +83,19 @@ namespace ServerApp
                         {
                             Message im = Serializer<Message>.Deserialize(data);
 
+                            //reconnection code - just let manager know this client is connecting again
+                            //and then do the same thing upon joining as normal
+                            if (im.MessageType == MessageType.ClientReconnect)
+                            {
+                                im.MessageType = MessageType.ClientJoin;
+
+                                _clientManager.ClientReconnectHandler(_clientID, im.SenderClientID);
+
+                                _clientID = im.SenderClientID;
+                            }
+
                             if (im.MessageType == MessageType.ClientJoin)
                             {
-                                //Moved to ClientManager and Server
-                                //Adding and removing of clients from/to connected/disconnected lists
-                                //Now we just have one list and a flag in the clients object for it
-
                                 //subscribing the client to the server for update in clientList
                                 lock(_clientManager._messageQueuesLocker)
                                 {
@@ -210,8 +203,8 @@ namespace ServerApp
 
         public Thread StartClientHandler()
         {
-            Thread t = new Thread(() => ReceiveMessages());
-            _clientThread = t;
+            _clientThread = new Thread(() => ReceiveMessages());
+            _clientThread.Start();
 
             return _clientThread;
         }

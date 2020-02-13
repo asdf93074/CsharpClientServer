@@ -105,7 +105,7 @@ namespace ServerApp
         {
             foreach (var k in _clients.Keys)
             {
-                if (k != cliendIdToExclude)
+                if (k != cliendIdToExclude && IsClientOnline(k))
                 {
                     SendMessageToClient(data, k);
                 }
@@ -115,6 +115,15 @@ namespace ServerApp
         public void AddMessageToQueueForClient(string clientId, object data)
         {
             _messageQueueHandler.AddClientQueue(clientId, data);
+        }
+
+        public void ClientReconnectHandler(string newid, string oldid)
+        {
+            lock(_messageQueuesLocker)
+            {
+                _clients[oldid] = _clients[newid];
+                _clients.Remove(newid);
+            }
         }
     }
 }
