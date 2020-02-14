@@ -8,10 +8,10 @@ namespace ServerApp.Interfaces
     public interface IMessageQueue
     {
         Dictionary<string, Queue<TimestampedMessage>> _messageQueues { get; set; }
-        Thread _queueHandlingThread { get; set; }
+        public Thread _messageExpirerThread { get; set; }
+        public Thread _clientCheckerThread { get; set; }
 
-        void RunQueue();
-        Thread StartMessageQueue();
+        void StartMessageQueue();
         void AddClientQueue(string clientId, object data);
     }
 }

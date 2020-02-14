@@ -123,6 +123,9 @@ namespace ServerApp
             {
                 _clients[oldid] = _clients[newid];
                 _clients.Remove(newid);
+
+                // pulse the _messageQueue and let it know to check if there are any messages to be sent to this client
+                Monitor.Pulse(_messageQueuesLocker);
             }
         }
     }

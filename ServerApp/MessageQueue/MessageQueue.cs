@@ -14,7 +14,8 @@ namespace ServerApp.ServerMessageQueue
     public class MessageQueue : IMessageQueue
     {
         public Dictionary<string, Queue<TimestampedMessage>> _messageQueues { get; set; } = new Dictionary<string, Queue<TimestampedMessage>>();
-        public Thread _queueHandlingThread { get; set; }
+        public Thread _messageExpirerThread { get; set; }
+        public Thread _clientCheckerThread { get; set; }
         ClientManager _clientManager;
 
         public MessageQueue(ClientManager cm)
@@ -22,29 +23,42 @@ namespace ServerApp.ServerMessageQueue
             _clientManager = cm;
         }
 
-        public void RunQueue()
+        void MessageExpirer(object state)
         {
-            while (true)
+            lock (_clientManager._messageQueuesLocker)
             {
                 if (_messageQueues.Count > 0)
                 {
-                    lock (_clientManager._messageQueuesLocker)
+                    foreach (var q in _messageQueues.Values)
                     {
-                        foreach (var q in _messageQueues.Values)
+                        if (q.Count > 0)
                         {
-                            if (q.Count > 0)
-                            {
-                                TimestampedMessage result = q.Peek();
+                            TimestampedMessage result = q.Peek();
 
-                                if ((DateTime.Now - result.receivedAt).TotalSeconds > 30)
-                                {
-                                    Log.Information("[MessageQueueHandler] Deleting message: {0}, from: {1}, to: {2}", result.message.MessageBody, result.message.SenderClientID,
-                                        result.message.ReceiverClientID);
-                                    q.Dequeue();
-                                }
+                            if ((DateTime.Now - result.receivedAt).TotalSeconds > 30)
+                            {
+                                Log.Information("[MessageQueueHandler] Deleting message: {0}, from: {1}, to: {2}", result.message.MessageBody, result.message.SenderClientID,
+                                    result.message.ReceiverClientID);
+                                q.Dequeue();
                             }
                         }
+                    }
+                }
+            }
+        }
 
+        void ClientChecker()
+        {
+            while (true)
+            {
+                lock (_clientManager._messageQueuesLocker)
+                {
+                    // waiting to be signalled that a client returned so it should check the queue
+                    // and see if there are messages to be sent to that client
+                    Monitor.Wait(_clientManager._messageQueuesLocker);
+
+                    if (_messageQueues.Count > 0)
+                    {
                         foreach (var k in _messageQueues.Keys)
                         {
                             if (_clientManager.GetListOfClients(true).Contains(k))
@@ -77,17 +91,19 @@ namespace ServerApp.ServerMessageQueue
                     receivedAt = DateTime.Now,
                     message = new Message((Message) data)
                 });
+
+                // setting a timer which checks for messages to expirer after 30 seconds
+                var expiryTimer = new Timer(MessageExpirer, null, 0, 30000);
             }
 
             Log.Information("Message queue for client: {0}, length: {1}", clientId, _messageQueues[clientId].Count);
         }
 
-        public Thread StartMessageQueue()
+        public void StartMessageQueue()
         {
-            Thread _queueHandlingThread = new Thread(() => RunQueue());
-            _queueHandlingThread.Start();
+            _clientCheckerThread = new Thread(() => ClientChecker());
+            _clientCheckerThread.Start();
 
-            return _queueHandlingThread;
         }
     }
 }

@@ -37,40 +37,37 @@ namespace ClientAPI
 
                 clientSocket = new Socket(ipAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
 
-                try
+                clientSocket.Connect(remoteEP);
+
+                MessageParser parser = new MessageParser();
+
+                byte[] message = Serializer<Message>.Serialize(new Message
                 {
-                    clientSocket.Connect(remoteEP);
+                    SenderClientID = userClientID,
+                    ReceiverClientID = null,
+                    MessageType = !reconnect? MessageType.ClientJoin : MessageType.ClientReconnect,
+                    MessageBody = clientID,
+                    Broadcast = false
+                });
 
-                    MessageParser parser = new MessageParser();
+                byte[] packet = parser.SenderParser(message);
 
-                    byte[] message = Serializer<Message>.Serialize(new Message
-                    {
-                        SenderClientID = userClientID,
-                        ReceiverClientID = null,
-                        MessageType = !reconnect? MessageType.ClientJoin : MessageType.ClientReconnect,
-                        MessageBody = clientID,
-                        Broadcast = false
-                    });
+                int bytesSent = clientSocket.Send(packet);
 
-                    byte[] packet = parser.SenderParser(message);
+                isConnected = true;
 
-                    int bytesSent = clientSocket.Send(packet);
+                _clientThread = new Thread(() => HandleReceive());
+                _clientThread.Start();
 
-                    isConnected = true;
-
-                    _clientThread = new Thread(() => HandleReceive());
-                    _clientThread.Start();
-
-                    return 0;
-                }
-                catch (ArgumentNullException)
-                {
-                    throw;
-                }
-                catch (SocketException se) when (se.SocketErrorCode == SocketError.ConnectionRefused)
-                {
-                    return -1;
-                }
+                return 0;
+            }
+            catch (ArgumentNullException)
+            {
+                throw;
+            }
+            catch (SocketException se) when (se.SocketErrorCode == SocketError.ConnectionRefused)
+            {
+                return -1;
             }
             catch (Exception)
             {
@@ -297,14 +294,22 @@ namespace ClientAPI
 
         public bool Reconnect(String ip = "127.0.0.1")
         {
-            int sc = StartClient(clientID, ip, true);
+            try
+            {
+                int sc = StartClient(clientID, ip, true);
 
-            if (sc == 0)
+                if (sc == 0)
+                {
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+            catch (SocketException)
             {
-                return true;
-            } else
-            {
-                return false;
+                throw;
             }
         }
 
