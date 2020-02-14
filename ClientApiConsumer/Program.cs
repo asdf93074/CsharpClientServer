@@ -15,113 +15,6 @@ namespace ClientApiConsumer
         static Client client;
         private static readonly object _listLock = new object();
 
-        public static void HandleReceive()
-        {
-            while (true)
-            {
-                try
-                {
-                    Queue<Message> queue = new Queue<Message>();
-                    
-                    queue = client.ReceiveData();
-
-                    foreach (Message im in queue)
-                    {
-                        if (im.MessageType == MessageType.ClientQuit)
-                        {
-                            break;
-                        }
-                        else if (im.MessageType == MessageType.Incomplete)
-                        {
-                            //if we have incomplete data then wait for more data
-                            continue;
-                        }
-                        else if (im.MessageType == MessageType.ClientID)
-                        {
-                            client.clientID = im.MessageBody.ToString();
-                            Console.WriteLine("[ClientID] ClientID is: {0}", im.MessageBody);
-                        }
-                        else if (im.MessageType == MessageType.ClientMessage)
-                        {
-                            if (im.Broadcast == true)
-                            {
-                                Console.WriteLine("[Broadcast] From Client: {0}, Message: {1}", im.SenderClientID, im.MessageBody);
-                            }
-                            else
-                            {
-                                Console.WriteLine("[ClientMessage] From Client: {0}, Message: {1}", im.SenderClientID, im.MessageBody);
-                            }
-                        }
-                        else if (im.MessageType == MessageType.ClientMessageFailure)
-                        {
-                            Console.WriteLine("[ClientMessageFailure] Reason: {0}", im.MessageBody);
-                        }
-                        else if (im.MessageType == MessageType.ClientList)
-                        {
-                            string[] clientListString = im.MessageBody.ToString().Split(',');
-                            List<string> clientList = new List<string>();
-
-                            foreach (string clientid in clientListString)
-                            {
-                                clientList.Add(clientid);
-                            }
-
-                            lock (_listLock)
-                            {
-                                client.clientList = clientList;
-                            }
-
-                            Console.WriteLine("[ClientListUpdate] [{0}]", string.Join(",", client.clientList.ToArray()));
-                        }
-                        else if (im.MessageType == MessageType.ClientDisconnectedList)
-                        {
-                            List<string> disconnectedClientList = new List<string>();
-
-                            if (im.MessageBody.ToString() != "")
-                            {
-                                string[] disconnectedClientListString = im.MessageBody.ToString().Split(',');
-
-                                foreach (string clientid in disconnectedClientListString)
-                                {
-                                    disconnectedClientList.Add(clientid);
-                                }
-                            }
-
-                            lock (_listLock)
-                            {
-                                client.disconnectedClientList = disconnectedClientList;
-                            }
-
-                            Console.WriteLine("[ClientDisconnectedListUpdate] [{0}]", string.Join(",", client.disconnectedClientList.ToArray()));
-                        }
-                        else if (im.MessageType == MessageType.ClientJoinUpdate)
-                        {
-                            Console.WriteLine("[ClientJoinUpdate] Client {0} has joined the server.", im.MessageBody);
-                        }
-                        else if (im.MessageType == MessageType.ClientQuitUpdate)
-                        {
-                            Console.WriteLine("[ClientQuitUpdate] Client {0} has left the server.", im.MessageBody);
-                        }
-                    }
-                }
-                catch (SocketException se) when (se.SocketErrorCode == SocketError.Interrupted)
-                {
-                    Console.WriteLine("[ReceivingThread] Thread aborted due to client disconnecting from server");
-                    break;
-                }
-                catch (SocketException se)
-                {
-                    Console.WriteLine("[ReceivingThread] Thread aborted due to SocketException (server probably went down): {0}", se.ToString());
-                    break;
-                }
-                catch (SerializationException se)
-                {
-                    Console.WriteLine("[ReceivingThread] Thread aborted due to SerializationException (server probably went down): {0}", se.ToString());
-                    break;
-                }
-            }
-        }
-
         public static void SendMessage()
         {
             if (client.clientList.Count + client.disconnectedClientList.Count == 1)
@@ -181,7 +74,6 @@ namespace ClientApiConsumer
                 Console.WriteLine("You are not connected to the server.");
             }
         }
-
 
         public static void BroadcastConMessage()
         {
@@ -251,9 +143,6 @@ namespace ClientApiConsumer
             int quit = 0;
             Console.WriteLine("Connected to server.");
 
-            Thread receivingThread = new Thread(() => HandleReceive());
-            receivingThread.Start();
-
             while (true && quit == 0)
             {
                 try
@@ -304,8 +193,6 @@ namespace ClientApiConsumer
 
                                     if (client.Reconnect(ip))
                                     {
-                                        receivingThread = new Thread(() => HandleReceive());
-                                        receivingThread.Start();
                                         Console.WriteLine("Connected to the server.");
                                     }
                                     else
@@ -346,12 +233,12 @@ namespace ClientApiConsumer
                 }
             }
 
-            receivingThread.Join();
+            client._clientThread.Join();
         }
 
         static void Main(string[] args)
         {
-            client = new Client();
+            client = new Client(_listLock);
 
             Console.WriteLine("Enter the server ip:");
             string ip = Console.ReadLine();

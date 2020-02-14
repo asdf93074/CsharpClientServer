@@ -3,8 +3,10 @@ using System.Net;
 using System.Net.Sockets;
 using System.Configuration;
 using System.Collections.Generic;
+using System.Threading;
 
 using ClientAPI.Messaging;
+using System.Runtime.Serialization;
 
 namespace ClientAPI
 { 
@@ -16,6 +18,14 @@ namespace ClientAPI
         public List<string> clientList = new List<string>();
         public List<string> disconnectedClientList = new List<string>();
         MessageParser receiverParser = new MessageParser();
+        private static object _listLock;
+
+        public Thread _clientThread;
+
+        public Client(object syncLock)
+        {
+            _listLock = syncLock;
+        }
 
         public int StartClient(String userClientID = null, string ip = "127.0.0.1", bool reconnect = false)
         {
@@ -47,6 +57,10 @@ namespace ClientAPI
                     int bytesSent = clientSocket.Send(packet);
 
                     isConnected = true;
+
+                    _clientThread = new Thread(() => HandleReceive());
+                    _clientThread.Start();
+
                     return 0;
                 }
                 catch (ArgumentNullException)
@@ -104,6 +118,110 @@ namespace ClientAPI
             catch (SocketException)
             {
                 throw;
+            }
+        }
+
+        public void HandleReceive()
+        {
+            while (true)
+            {
+                try
+                {
+                    Queue<Message> queue = new Queue<Message>();
+
+                    queue = ReceiveData();
+
+                    foreach (Message im in queue)
+                    {
+                        if (im.MessageType == MessageType.ClientQuit)
+                        {
+                            break;
+                        }
+                        else if (im.MessageType == MessageType.Incomplete)
+                        {
+                            //if we have incomplete data then wait for more data
+                            continue;
+                        }
+                        else if (im.MessageType == MessageType.ClientID)
+                        {
+                            clientID = im.MessageBody.ToString();
+                            Console.WriteLine("[ClientID] ClientID is: {0}", im.MessageBody);
+                        }
+                        else if (im.MessageType == MessageType.ClientMessage)
+                        {
+                            if (im.Broadcast == true)
+                            {
+                                Console.WriteLine("[Broadcast] From Client: {0}, Message: {1}", im.SenderClientID, im.MessageBody);
+                            }
+                            else
+                            {
+                                Console.WriteLine("[ClientMessage] From Client: {0}, Message: {1}", im.SenderClientID, im.MessageBody);
+                            }
+                        }
+                        else if (im.MessageType == MessageType.ClientMessageFailure)
+                        {
+                            Console.WriteLine("[ClientMessageFailure] Reason: {0}", im.MessageBody);
+                        }
+                        else if (im.MessageType == MessageType.ClientList)
+                        {
+                            string[] clientListString = im.MessageBody.ToString().Split(',');
+
+                            lock (_listLock)
+                            {
+                                clientList.Clear();
+
+                                foreach (string clientid in clientListString)
+                                {
+                                    clientList.Add(clientid);
+                                }
+                            }
+                            
+                            Console.WriteLine("[ClientListUpdate] [{0}]", string.Join(",", clientList.ToArray()));
+                        }
+                        else if (im.MessageType == MessageType.ClientDisconnectedList)
+                        {
+                            if (im.MessageBody.ToString() != "")
+                            {
+                                string[] disconnectedClientListString = im.MessageBody.ToString().Split(',');
+
+                                lock (_listLock)
+                                {
+                                    disconnectedClientList.Clear();
+
+                                    foreach (string clientid in disconnectedClientListString)
+                                    {
+                                        disconnectedClientList.Add(clientid);
+                                    }
+                                }
+                            }
+
+                            Console.WriteLine("[ClientDisconnectedListUpdate] [{0}]", string.Join(",", disconnectedClientList.ToArray()));
+                        }
+                        else if (im.MessageType == MessageType.ClientJoinUpdate)
+                        {
+                            Console.WriteLine("[ClientJoinUpdate] Client {0} has joined the server.", im.MessageBody);
+                        }
+                        else if (im.MessageType == MessageType.ClientQuitUpdate)
+                        {
+                            Console.WriteLine("[ClientQuitUpdate] Client {0} has left the server.", im.MessageBody);
+                        }
+                    }
+                }
+                catch (SocketException se) when (se.SocketErrorCode == SocketError.Interrupted)
+                {
+                    Console.WriteLine("[ReceivingThread] Thread aborted due to client disconnecting from server");
+                    break;
+                }
+                catch (SocketException se)
+                {
+                    Console.WriteLine("[ReceivingThread] Thread aborted due to SocketException (server probably went down): {0}", se.ToString());
+                    break;
+                }
+                catch (SerializationException se)
+                {
+                    Console.WriteLine("[ReceivingThread] Thread aborted due to SerializationException (server probably went down): {0}", se.ToString());
+                    break;
+                }
             }
         }
 

@@ -63,11 +63,20 @@ namespace ServerApp
             //storing it in a variable so we can unsubscribe from it later
             _ClientListUpdateEventHandler = () =>
             {
-                clientListMessage.ReceiverClientID = _clientID.ToString();
-                clientListMessage.MessageType = MessageType.ClientList;
-                clientListMessage.MessageBody = string.Join(",", _clientManager.GetListOfClients(true));
+                try
+                {
+                    clientListMessage.ReceiverClientID = _clientID.ToString();
+                    clientListMessage.MessageType = MessageType.ClientList;
+                    clientListMessage.MessageBody = string.Join(",", _clientManager.GetListOfClients(true));
 
-                SendPacket(clientListMessage);
+                    SendPacket(clientListMessage);
+                }
+                catch (SocketException se)
+                {
+                    Log.Error("[ClientDisconnectWhenSending] Client {0} disconnected while we were sending it a clientListUpdate. {1}"
+                        , _clientID, se.ToString());
+                }
+                
             };
 
             while (true && _isConnected && _clientSocket.Connected)
