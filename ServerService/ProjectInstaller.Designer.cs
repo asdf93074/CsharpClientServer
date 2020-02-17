@@ -40,10 +40,10 @@
             // 
             // serviceInstaller1
             // 
-            this.serviceInstaller1.ServiceName = "Service1";
+            this.serviceInstaller1.ServiceName = "C#Server";
 
-            this.serviceInstaller1.Description = "Starts a server.";
-            this.serviceInstaller1.DisplayName = "Server.demo";
+            this.serviceInstaller1.Description = "Starts a C# server which can communicate with clients.";
+            this.serviceInstaller1.DisplayName = "C#Server";
             // 
             // ProjectInstaller
             // 

@@ -60,7 +60,8 @@ namespace ServerApp
             {
                 if (k != senderClientId)
                 {
-                    SendMessageToClient(data, k);
+                    if (_clients[k]._isConnected)
+                        SendMessageToClient(data, k);
                 }
             }
         }

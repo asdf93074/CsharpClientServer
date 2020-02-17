@@ -41,7 +41,12 @@ namespace ServerApp
                 byte[] packet = _parser.SenderParser(message);
 
                 int bytesSent = _clientSocket.Send(packet);
-            } catch (SocketException se)
+            }
+            catch (SocketException se) when (se.SocketErrorCode == SocketError.ConnectionAborted)
+            {
+                Log.Error("[ConnectionAborted] Client: {0} disconnected during the sending of a message.", se.ToString());
+            }
+            catch (SocketException se)
             {
                 Log.Error("Sending packet to client: {0}", se.ToString());
             }

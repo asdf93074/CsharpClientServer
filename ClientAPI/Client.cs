@@ -109,7 +109,6 @@ namespace ClientAPI
             }
             catch (NullReferenceException nre)
             {
-                Console.WriteLine(nre.ToString());
                 throw;
             }
             catch (SocketException)
@@ -120,7 +119,7 @@ namespace ClientAPI
 
         public void HandleReceive()
         {
-            while (true)
+            while (true && clientSocket.Connected)
             {
                 try
                 {
@@ -206,7 +205,7 @@ namespace ClientAPI
                 }
                 catch (SocketException se) when (se.SocketErrorCode == SocketError.Interrupted)
                 {
-                    Console.WriteLine("[ReceivingThread] Thread aborted due to client disconnecting from server");
+                    Console.WriteLine("[ReceivingThread] Thread aborted due to client disconnecting from server.");
                     break;
                 }
                 catch (SocketException se)
