@@ -1,15 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Threading;
 using System.Runtime.Serialization;
 
-using Serilog;
-
 using ServerApp.Interfaces;
 using ClientAPI.Messaging;
 using ClientAPI;
+
+using Serilog;
 
 namespace ServerApp
 {

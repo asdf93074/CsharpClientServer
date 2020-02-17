@@ -1,13 +1,8 @@
 ﻿using System;
 using System.Threading;
 using System.Net.Sockets;
-using System.Runtime.Serialization;
-using System.Collections.Generic;
 
 using ClientAPI;
-using ClientAPI.Messaging;
-using System.Text;
-
 namespace ClientApiConsumer
 {
     public class Program

@@ -1,13 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Threading;
 using System.Linq;
 
 using ServerApp.Interfaces;
+using ClientAPI.Messaging;
 
 using Serilog;
-using ClientAPI.Messaging;
 
 namespace ServerApp.ServerMessageQueue
 {
@@ -23,7 +22,7 @@ namespace ServerApp.ServerMessageQueue
             _clientManager = cm;
         }
 
-        void MessageExpirer(object state)
+        public void MessageExpirer(object state)
         {
             lock (_clientManager._messageQueuesLocker)
             {
@@ -46,8 +45,7 @@ namespace ServerApp.ServerMessageQueue
                 }
             }
         }
-
-        void ClientChecker()
+        public void ClientChecker()
         {
             while (true)
             {

@@ -6,7 +6,6 @@ using System.Text;
 using System.Threading;
 
 using ServerApp.Interfaces;
-using ClientAPI.Messaging;
 using ServerApp.ServerMessageQueue;
 
 namespace ServerApp
